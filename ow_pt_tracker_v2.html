@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OW PT Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0f14; --surface: #161a22; --surface2: #1e2330; --border: #2a3045;
+      --accent: #e8ff47; --accent2: #47c8ff; --danger: #ff4757; --success: #2ed573;
+      --text: #f0f2f8; --muted: #6b7592;
+      --font-head: 'Bebas Neue', sans-serif; --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'DM Mono', monospace; --radius: 12px;
+      --glow: 0 0 24px rgba(232,255,71,0.15);
+    }
+    html, body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse 80% 50% at 20% 10%, rgba(71,200,255,0.05) 0%, transparent 60%),
+                  radial-gradient(ellipse 60% 40% at 80% 90%, rgba(232,255,71,0.04) 0%, transparent 60%);
+    }
+
+    /* ── LOADING SCREEN ── */
+    #loading-screen {
+      position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 200; gap: 20px;
+    }
+    .loading-logo { font-family: var(--font-head); font-size: 64px; letter-spacing: 6px; }
+    .loading-logo span { color: var(--accent); }
+    .loading-bar-wrap { width: 200px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .loading-bar { height: 100%; background: var(--accent); border-radius: 2px; width: 0; transition: width 0.4s ease; }
+    .loading-msg { font-size: 12px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+    /* ── CLIENT SELECT ── */
+    #client-select {
+      display: none; flex-direction: column; align-items: center;
+      min-height: 100vh; padding: 32px 24px 60px; position: relative; z-index: 1;
+    }
+    #client-select.visible { display: flex; }
+    .select-topbar { width: 100%; max-width: 940px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .select-logo { font-family: var(--font-head); font-size: 32px; letter-spacing: 4px; }
+    .select-logo span { color: var(--accent); }
+    .select-date { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+    .select-header { text-align: center; margin-bottom: 36px; }
+    .select-header h1 { font-family: var(--font-head); font-size: clamp(40px,9vw,76px); letter-spacing: 4px; line-height: 0.9; }
+    .select-header h1 span { color: var(--accent); }
+    .select-header p { color: var(--muted); margin-top: 10px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+    .section-label-row { width: 100%; max-width: 940px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .section-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    .btn-add-client { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; border: 1.5px solid rgba(232,255,71,0.3); background: rgba(232,255,71,0.07); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; }
+    .btn-add-client:hover { background: rgba(232,255,71,0.14); border-color: var(--accent); }
+    .btn-add-group { border-color: rgba(71,200,255,0.3); background: rgba(71,200,255,0.07); color: var(--accent2); }
+    .btn-add-group:hover { background: rgba(71,200,255,0.14); border-color: var(--accent2); }
+    .client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; max-width: 940px; width: 100%; margin-bottom: 36px; }
+    .client-card {
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px;
+      padding: 20px 14px; cursor: pointer; text-align: center; transition: all 0.22s;
+      position: relative; overflow: hidden;
+    }
+    .client-card::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity 0.22s; background: radial-gradient(circle at 50% 0%, rgba(232,255,71,0.11), transparent 70%); }
+    .client-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 8px 30px rgba(232,255,71,0.14); }
+    .client-card:hover::before { opacity: 1; }
+    .client-card.group-card::before { background: radial-gradient(circle at 50% 0%, rgba(71,200,255,0.11), transparent 70%); }
+    .client-card.group-card:hover { border-color: var(--accent2); box-shadow: 0 8px 30px rgba(71,200,255,0.14); }
+    .client-card.archived { opacity: 0.45; }
+    .client-avatar { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-head); font-size: 17px; letter-spacing: 1px; margin: 0 auto 10px; background: rgba(232,255,71,0.1); color: var(--accent); border: 1.5px solid rgba(232,255,71,0.25); }
+    .client-card.group-card .client-avatar { background: rgba(71,200,255,0.1); color: var(--accent2); border-color: rgba(71,200,255,0.25); }
+    .client-card h3 { font-family: var(--font-head); font-size: 16px; letter-spacing: 1.5px; margin-bottom: 3px; line-height: 1.2; }
+    .client-meta { font-size: 10px; color: var(--muted); }
+    .client-count-badge { display: inline-block; margin-top: 6px; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 100px; background: rgba(232,255,71,0.1); color: var(--accent); }
+    .client-card.group-card .client-count-badge { background: rgba(71,200,255,0.1); color: var(--accent2); }
+    .show-archived-row { width: 100%; max-width: 940px; display: flex; align-items: center; gap: 10px; margin-top: -20px; margin-bottom: 20px; }
+    .toggle-archived-btn { font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--border); padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .toggle-archived-btn:hover { color: var(--text); border-color: var(--text); }
+
+    /* ── MODAL ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 300; display: none; align-items: center; justify-content: center; padding: 24px; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 28px; width: 100%; max-width: 460px; animation: modalIn 0.2s ease; }
+    @keyframes modalIn { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    .modal-title { font-family: var(--font-head); font-size: 26px; letter-spacing: 3px; margin-bottom: 20px; }
+    .modal-title span { color: var(--accent); }
+    .modal-title.group span { color: var(--accent2); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-modal-save { flex: 1; padding: 11px; background: var(--accent); color: #0d0f14; font-family: var(--font-head); font-size: 17px; letter-spacing: 2px; border: none; border-radius: 9px; cursor: pointer; transition: all 0.2s; }
+    .btn-modal-save:hover { background: #f5ff70; }
+    .btn-modal-save.group { background: var(--accent2); }
+    .btn-modal-cancel { padding: 11px 18px; background: none; border: 1.5px solid var(--border); color: var(--muted); border-radius: 9px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+    .btn-modal-cancel:hover { border-color: var(--text); color: var(--text); }
+
+    /* ── APP SHELL ── */
+    #app { display: none; min-height: 100vh; flex-direction: column; position: relative; z-index: 1; }
+    #app.visible { display: flex; }
+
+    /* ── HEADER ── */
+    header {
+      display: grid; grid-template-columns: auto 1fr auto;
+      align-items: center; gap: 14px;
+      padding: 13px 22px; border-bottom: 1px solid var(--border);
+      background: rgba(13,15,20,0.93); backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .back-btn { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); background: none; border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .back-btn:hover { color: var(--text); border-color: var(--text); }
+    .header-center { text-align: center; }
+    .header-logo { font-family: var(--font-head); font-size: 20px; letter-spacing: 3px; }
+    .header-logo span { color: var(--accent); }
+    .client-header-name { font-family: var(--font-head); font-size: 19px; letter-spacing: 2px; color: var(--accent); line-height: 1; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+    .header-date { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+    .header-pill { font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 4px 11px; border-radius: 100px; background: rgba(232,255,71,0.1); border: 1px solid rgba(232,255,71,0.3); color: var(--accent); white-space: nowrap; }
+
+    /* ── NAV ── */
+    .tab-nav { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 18px; overflow-x: auto; scrollbar-width: none; }
+    .tab-nav::-webkit-scrollbar { display: none; }
+    .tab-btn { padding: 12px 16px; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── PANELS ── */
+    .tab-panel { display: none; padding: 22px; max-width: 860px; margin: 0 auto; width: 100%; }
+    .tab-panel.active { display: block; }
+    .section-head { font-family: var(--font-head); font-size: 30px; letter-spacing: 3px; margin-bottom: 4px; }
+    .section-sub { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+
+    /* ── CARDS ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+    .card-title { font-family: var(--font-head); font-size: 17px; letter-spacing: 2px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+    /* ── GOALS ── */
+    .goals-banner { background: rgba(232,255,71,0.05); border: 1px solid rgba(232,255,71,0.18); border-radius: var(--radius); padding: 13px 16px; margin-bottom: 18px; position: relative; }
+    .goals-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 5px; }
+    .goals-text { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .edit-goals-btn { position: absolute; top: 10px; right: 12px; font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--border); padding: 3px 8px; border-radius: 5px; cursor: pointer; transition: all 0.2s; }
+    .edit-goals-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── STATS ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px,1fr)); gap: 10px; margin-bottom: 18px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px; text-align: center; }
+    .stat-val { font-family: var(--font-head); font-size: 28px; letter-spacing: 2px; color: var(--accent); line-height: 1; }
+    .stat-label { font-size: 10px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* ── FORMS ── */
+    label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    select, input[type="text"], input[type="number"], input[type="date"], textarea {
+      width: 100%; padding: 9px 12px; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: var(--font-body); font-size: 13px; transition: border-color 0.2s;
+    }
+    select { appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7592' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+    select:focus, input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 58px; }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .form-row > * { flex: 1; min-width: 100px; }
+    .form-group { margin-bottom: 12px; }
+
+    /* ── EXERCISE INPUT ROWS ── */
+    .ex-row-headers { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap: 8px; margin-bottom: 4px; }
+    .ex-row-headers span { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+    .ex-input-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap: 8px; align-items: center; margin-bottom: 7px; animation: slideIn 0.2s ease; }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+    .ex-input-row input { padding: 8px 10px; font-size: 12px; }
+    .remove-row-btn { width: 30px; height: 34px; border-radius: 6px; border: 1.5px solid var(--border); background: none; color: var(--danger); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .remove-row-btn:hover { background: rgba(255,71,87,0.12); border-color: var(--danger); }
+    .btn-add-row { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; margin-top: 6px; background: rgba(71,200,255,0.07); border: 1.5px solid rgba(71,200,255,0.25); border-radius: 8px; color: var(--accent2); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; }
+    .btn-add-row:hover { background: rgba(71,200,255,0.13); border-color: var(--accent2); }
+    .btn-primary { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 28px; background: var(--accent); color: #0d0f14; font-family: var(--font-head); font-size: 18px; letter-spacing: 2px; border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; width: 100%; margin-top: 14px; }
+    .btn-primary:hover { background: #f5ff70; transform: translateY(-2px); box-shadow: var(--glow); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ── HISTORY ── */
+    .history-entry { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 9px; overflow: hidden; transition: border-color 0.2s; }
+    .history-entry:hover { border-color: var(--accent2); }
+    .history-entry-header { padding: 13px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; cursor: pointer; }
+    .history-date { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+    .history-exlist { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .history-right { text-align: right; flex-shrink: 0; }
+    .history-badge { font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 2px 7px; border-radius: 100px; background: rgba(71,200,255,0.1); color: var(--accent2); }
+    .history-chevron { font-size: 13px; color: var(--muted); transition: transform 0.2s; margin-top: 3px; }
+    .history-detail { display: none; border-top: 1px solid var(--border); padding: 13px 16px; background: var(--surface2); }
+    .history-detail.open { display: block; }
+    .ex-detail-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; align-items: start; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+    .ex-detail-row:last-child { border-bottom: none; }
+    .ex-detail-name { font-weight: 600; color: var(--text); }
+    .ex-detail-val { font-family: var(--font-mono); color: var(--muted); text-align: center; }
+    .ex-detail-header { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+    .pr-tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: rgba(232,255,71,0.12); border: 1px solid rgba(232,255,71,0.3); border-radius: 100px; font-size: 9px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+    .note-line { font-size: 11px; color: var(--muted); font-style: italic; padding-top: 5px; }
+
+    /* ── FOCUS PILLS ── */
+    .focus-pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 100px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+    .focus-Arms { background: rgba(71,200,255,0.12); color: var(--accent2); }
+    .focus-Legs { background: rgba(232,255,71,0.12); color: var(--accent); }
+    .focus-Full { background: rgba(46,213,115,0.12); color: var(--success); }
+    .focus-Other { background: rgba(255,71,87,0.1); color: var(--danger); }
+
+    /* ── CHARTS ── */
+    .chart-wrap { position: relative; height: 210px; margin-top: 10px; }
+    .chart-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+
+    /* ── PRs ── */
+    .pr-list-item { display: flex; align-items: center; justify-content: space-between; padding: 11px 15px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 7px; }
+    .pr-name { font-weight: 600; font-size: 13px; }
+    .pr-weight { font-family: var(--font-head); font-size: 24px; color: var(--accent); letter-spacing: 2px; }
+    .pr-date { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* ── WEEK BADGE ── */
+    .week-badge { font-family: var(--font-mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+    /* ── FILTER ROW ── */
+    .filter-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    .filter-row select { flex: 1; min-width: 100px; max-width: 175px; font-size: 12px; padding: 7px 10px; }
+    .chart-pill { padding: 5px 11px; border-radius: 100px; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; border: 1.5px solid var(--border); background: none; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+    .chart-pill:hover { color: var(--text); }
+    .chart-pill.active { border-color: var(--accent2); color: var(--accent2); background: rgba(71,200,255,0.08); }
+
+    /* ── ARCHIVE / DANGER ZONE ── */
+    .danger-zone { margin-top: 28px; padding: 16px; border: 1px solid rgba(255,71,87,0.2); border-radius: var(--radius); background: rgba(255,71,87,0.04); }
+    .danger-zone-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--danger); margin-bottom: 12px; }
+    .danger-btn { padding: 8px 16px; border-radius: 8px; border: 1.5px solid; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; background: none; letter-spacing: 1px; margin-right: 8px; }
+    .btn-archive { border-color: var(--muted); color: var(--muted); }
+    .btn-archive:hover { border-color: var(--text); color: var(--text); }
+    .btn-archive.unarchive { border-color: var(--success); color: var(--success); }
+    .btn-delete { border-color: var(--danger); color: var(--danger); }
+    .btn-delete:hover { background: rgba(255,71,87,0.12); }
+
+    /* ── EMPTY / SPINNER ── */
+    .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); }
+    .empty-state .icon { font-size: 38px; margin-bottom: 10px; }
+    .empty-state h3 { font-family: var(--font-head); font-size: 20px; letter-spacing: 2px; color: var(--text); margin-bottom: 5px; }
+    .spinner-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 32px; color: var(--muted); font-size: 13px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── TOAST ── */
+    #toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface); border: 1px solid var(--accent); color: var(--text); padding: 10px 22px; border-radius: 100px; font-size: 13px; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; box-shadow: var(--glow); pointer-events: none; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 600px) {
+      .client-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+      .ex-input-row, .ex-row-headers { grid-template-columns: 1fr 1fr; }
+      .ex-input-row .ex-name-cell { grid-column: 1 / -1; }
+      .ex-row-headers span:not(:first-child):not(:last-child) { display: none; }
+      header { padding: 10px 14px; gap: 10px; }
+      .tab-panel { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="loading-logo">OW<span>PT</span></div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+  <div class="loading-msg" id="loading-msg">Initializing…</div>
+</div>
+
+<!-- CLIENT SELECT -->
+<div id="client-select">
+  <div class="select-topbar">
+    <div class="select-logo">OW<span>PT</span></div>
+    <div class="select-date" id="select-date"></div>
+  </div>
+  <div class="select-header">
+    <h1>CLIENT<span>S</span></h1>
+    <p>Select a client to view or log</p>
+  </div>
+
+  <div class="section-label-row">
+    <div class="section-label">Individual Clients</div>
+    <button class="btn-add-client" onclick="openNewClientModal(false)">＋ Add Client</button>
+  </div>
+  <div class="client-grid" id="client-grid"></div>
+  <div class="show-archived-row">
+    <button class="toggle-archived-btn" id="archived-toggle-btn" onclick="toggleShowArchived()">👁 Show Archived</button>
+    <span id="archived-count-label" style="font-size:11px;color:var(--muted);"></span>
+  </div>
+
+  <div class="section-label-row" style="margin-top:8px;">
+    <div class="section-label">Groups</div>
+    <button class="btn-add-client btn-add-group" onclick="openNewClientModal(true)">＋ Add Group</button>
+  </div>
+  <div class="client-grid" id="group-grid"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <button class="back-btn" onclick="goBack()">← Clients</button>
+    <div class="header-center">
+      <div class="header-logo">OW<span>PT</span></div>
+      <div class="client-header-name" id="header-client-name"></div>
+    </div>
+    <div class="header-right">
+      <div class="header-date" id="header-date"></div>
+      <div class="header-pill" id="header-pill"></div>
+    </div>
+  </header>
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="overview" onclick="showTab('overview')">📋 Overview</button>
+    <button class="tab-btn" data-tab="log" onclick="showTab('log')">📝 Log Session</button>
+    <button class="tab-btn" data-tab="history" onclick="showTab('history')">📅 History</button>
+    <button class="tab-btn" data-tab="progress" onclick="showTab('progress')">📈 Progress</button>
+    <button class="tab-btn" data-tab="prs" onclick="showTab('prs')">🏆 PRs</button>
+  </nav>
+
+  <div id="tab-overview" class="tab-panel active"></div>
+
+  <div id="tab-log" class="tab-panel">
+    <div class="section-head">LOG SESSION</div>
+    <div class="section-sub">Add a new training session</div>
+    <div class="card">
+      <div class="form-row" style="margin-bottom:12px;">
+        <div class="form-group"><label>Date</label><input type="date" id="log-date" /></div>
+        <div class="form-group"><label>Week #</label><input type="number" id="log-week" min="1" placeholder="e.g. 6" /></div>
+        <div class="form-group">
+          <label>Focus</label>
+          <select id="log-focus">
+            <option value="">— select —</option>
+            <option>Arms</option><option>Legs</option><option>Full Body</option>
+            <option>Back</option><option>Chest</option><option>Shoulders</option>
+            <option>Core</option><option>Cardio</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Exercises</label>
+        <div class="ex-row-headers">
+          <span>Exercise Name</span><span style="text-align:center">Sets</span>
+          <span style="text-align:center">Reps</span><span style="text-align:center">Weight</span><span></span>
+        </div>
+        <div id="exercise-rows"></div>
+        <button class="btn-add-row" onclick="addExRow()">＋ Add Exercise</button>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Session Notes</label>
+        <textarea id="log-session-notes" placeholder="Overall observations, client feedback, form cues…"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Exercise Notes</label>
+          <textarea id="log-ex-notes" placeholder="Notes specific to any exercise…" style="min-height:46px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>PR Achieved?</label>
+          <select id="log-pr"><option value="false">No</option><option value="true">Yes — PR! 🏆</option></select>
+        </div>
+      </div>
+      <button class="btn-primary" id="save-btn" onclick="saveSession()">💾 SAVE SESSION</button>
+    </div>
+  </div>
+
+  <div id="tab-history" class="tab-panel">
+    <div class="section-head">HISTORY</div>
+    <div class="section-sub" id="history-sub"></div>
+    <div class="filter-row">
+      <select id="hist-week-filter" onchange="renderHistory()"><option value="">All Weeks</option></select>
+      <select id="hist-focus-filter" onchange="renderHistory()"><option value="">All Focus Areas</option></select>
+      <button class="chart-pill" onclick="clearHistFilters()">✕ Clear</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <div id="tab-progress" class="tab-panel">
+    <div class="section-head">PROGRESS</div>
+    <div class="section-sub">Weight progression & session volume</div>
+    <div class="card">
+      <div class="card-title">📈 Weight Over Time</div>
+      <div class="chart-controls">
+        <select id="prog-exercise-select" onchange="renderProgressChart()" style="flex:1;min-width:150px;font-size:12px;"></select>
+      </div>
+      <div class="chart-wrap"><canvas id="progressChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📅 Sessions per Week</div>
+      <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="tab-prs" class="tab-panel">
+    <div class="section-head">PERSONAL RECORDS</div>
+    <div class="section-sub">Best weight logged per exercise</div>
+    <div style="margin-bottom:12px;">
+      <input type="text" id="pr-search" placeholder="🔍 Filter exercises…" oninput="renderPRs()" />
+    </div>
+    <div id="pr-list"></div>
+  </div>
+</div>
+
+<!-- NEW CLIENT MODAL -->
+<div class="modal-overlay" id="new-client-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">NEW <span>CLIENT</span></div>
+    <div class="form-group"><label>Full Name</label><input type="text" id="new-client-name" placeholder="e.g. Jane Smith" /></div>
+    <div class="form-group"><label>Notes & Goals</label><textarea id="new-client-goals" placeholder="Injuries, limitations, training goals…"></textarea></div>
+    <div class="form-group">
+      <label>Default Focus Template</label>
+      <select id="new-client-focus">
+        <option value="">— No default —</option>
+        <option>Arms</option><option>Legs</option><option>Full Body</option>
+        <option>Back</option><option>Chest</option><option>Shoulders</option><option>Core</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-modal-save" id="modal-save-btn" onclick="saveNewClient()">CREATE CLIENT</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT GOALS MODAL -->
+<div class="modal-overlay" id="edit-goals-modal">
+  <div class="modal">
+    <div class="modal-title">EDIT <span>GOALS</span></div>
+    <div class="form-group"><label>Notes & Goals</label><textarea id="edit-goals-text" style="min-height:100px;"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-modal-save" onclick="saveGoals()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, writeBatch, getDoc }
+  from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA-OBWRTaF6yFZyOXR-Pn4L3Rpa1NSO3-Y",
+  authDomain: "ow-pt-tracker.firebaseapp.com",
+  projectId: "ow-pt-tracker",
+  storageBucket: "ow-pt-tracker.firebasestorage.app",
+  messagingSenderId: "623637469278",
+  appId: "1:623637469278:web:a137a12d4040ec95f0bccf"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+// ── Expose globals ──
+window.showTab = showTab;
+window.goBack = goBack;
+window.openNewClientModal = openNewClientModal;
+window.closeModal = closeModal;
+window.saveNewClient = saveNewClient;
+window.saveSession = saveSession;
+window.addExRow = addExRow;
+window.removeExRow = removeExRow;
+window.renderHistory = renderHistory;
+window.clearHistFilters = clearHistFilters;
+window.renderProgressChart = renderProgressChart;
+window.renderPRs = renderPRs;
+window.toggleDetail = toggleDetail;
+window.toggleShowArchived = toggleShowArchived;
+window.archiveClient = archiveClient;
+window.deleteClient = deleteClient;
+window.openEditGoals = openEditGoals;
+window.saveGoals = saveGoals;
+
+// ── Embedded seed data ──
+const SEED_DATA = [{"name":"Mira Carey","goals":"R bicep fatigues faster, L shoulder/neck irritated and flares. Tolerance to cardio is low.","isGroup":false,"sessions":[{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Serratus punches","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":"Last set at 15 with no issues"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Lat pulldowns","sets":"3","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":"Go heavier next time"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"3-way shoulders","sets":"4","reps":"5 each","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":"Watching for R bicep fatigue"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Serratus pushups","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":"Little bit of elbow flexion/extension"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Pushups","sets":"4","reps":"8","weight":"BW","pr":false,"sessionNotes":"","exNotes":"Excessive L elbow flare, lost depth on the last round"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"High plank holds","sets":"4","reps":"45s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"2 laps walking lunges","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"Bulgarian split squats","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-21","focus":"Arms","exercise":"Banded ER/IR","sets":"3","reps":"10","weight":"Red","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-21","focus":"Arms","exercise":"Serratus pushups","sets":"3","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-21","focus":"Full Body","exercise":"Wall sits with OH","sets":"4","reps":"45s","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-21","focus":"Full Body","exercise":"Renegade rows","sets":"3","reps":"5","weight":"12","pr":false,"sessionNotes":"","exNotes":"Hands off of DBs for pushups"},{"week":2,"date":"2026-01-21","focus":"Full Body","exercise":"KB pull thru","sets":"4","reps":"12","weight":"13","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":"1xBW, 2x20lbs"},{"week":2,"date":"2026-01-23","focus":"Legs","exercise":"Elevated calf raises","sets":"4","reps":"15","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Legs","exercise":"Wall sits with OH","sets":"3","reps":"1 min","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-28","focus":"Arms","exercise":"Scap pushups","sets":"4","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-28","focus":"Arms","exercise":"Genies","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-28","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-28","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":"2x12, 2x10"},{"week":3,"date":"2026-01-28","focus":"Arms","exercise":"3-way shoulders","sets":"3","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"KB squats","sets":"4","reps":"12","weight":"39","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"39","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"HS ball roll ins","sets":"3","reps":"12","weight":"grey","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-04","focus":"Arms","exercise":"Serratus pushups","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-04","focus":"Arms","exercise":"Bear crawl holds","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-04","focus":"Arms","exercise":"Supine ER+ scap squeeze","sets":"3","reps":"10","weight":"orange","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-04","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-04","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"12","weight":"15","pr":false,"sessionNotes":"2x12, 2x10","exNotes":""},{"week":4,"date":"2026-02-04","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-06","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"44","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-06","focus":"Legs","exercise":"KB squats with feet up on 55s","sets":"4","reps":"15","weight":"44","pr":false,"sessionNotes":"","exNotes":"More \"gassed\" here. Requred seated rest breaks. "},{"week":4,"date":"2026-02-06","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-06","focus":"Legs","exercise":"SL bridges","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-16","focus":"Arms","exercise":"Genies","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-16","focus":"Arms","exercise":"Plank clocks","sets":"3","reps":"5","weight":"light","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-16","focus":"Arms","exercise":"Cable tricep OH ext","sets":"3","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-16","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"65","pr":false,"sessionNotes":"","exNotes":"Tried 75 and got 3 reps"},{"week":5,"date":"2026-02-16","focus":"Arms","exercise":"Seated bicep curls over knee","sets":"3","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-16","focus":"Arms","exercise":"Pushups","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-20","focus":"Legs","exercise":"KB squats","sets":"3","reps":"10","weight":"39","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-20","focus":"Legs","exercise":"Triple threat","sets":"3","reps":"10","weight":"gray","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-20","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-20","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"39","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-20","focus":"Legs","exercise":"Wall sits","sets":"1","reps":"2 min","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Arms","exercise":"Scap pushups","sets":"3","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Arms","exercise":"Cable lateral raises","sets":"3","reps":"8","weight":"2.5","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Arms","exercise":"Shoulder clocks","sets":"3","reps":"5","weight":"light","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Arms","exercise":"Seated bicep curls over knee","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Arms","exercise":"Skullcrushers","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Legs","exercise":"Triple threat","sets":"3","reps":"10","weight":"blue","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Legs","exercise":"Lateral walks","sets":"2 laps","reps":"","weight":"medium","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-23","focus":"Legs","exercise":"Wall sits","sets":"2","reps":"90s","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-27","focus":"Full Body","exercise":"Deadlifts","sets":"4","reps":"5","weight":"115","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-27","focus":"Full Body","exercise":"DB thrusters","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-27","focus":"Full Body","exercise":"OH KBS","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-02","focus":"Arms","exercise":"OHP","sets":"5","reps":"5","weight":"55","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-02","focus":"Arms","exercise":"Genies","sets":"3","reps":"10","weight":"light","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-02","focus":"Arms","exercise":"Renegade rows","sets":"3","reps":"5","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-02","focus":"Arms","exercise":"Bicep curls > hammer curls","sets":"3","reps":"5 each","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-02","focus":"Arms","exercise":"OH triceps extension","sets":"3","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-04","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"44","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-04","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"15s in each hand","pr":false,"sessionNotes":"Too hard, caused nausea","exNotes":""},{"week":7,"date":"2026-03-04","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-04","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-09","focus":"Arms","exercise":"Scap pushups","sets":"4","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-09","focus":"Arms","exercise":"DB chest press","sets":"4","reps":"8","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-09","focus":"Arms","exercise":"DB flies","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-09","focus":"Arms","exercise":"Pushups","sets":"5","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-09","focus":"Arms","exercise":"Bicep curls","sets":"3","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-23","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"53","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-23","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-23","focus":"Legs","exercise":"SL hip thrusts","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-23","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"1 min","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-27","focus":"Arms","exercise":"DB OHP","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-27","focus":"Arms","exercise":"Shoulder hell iso","sets":"3","reps":"10","weight":"2.5","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-27","focus":"Arms","exercise":"Preacher's curls","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-27","focus":"Arms","exercise":"TRX OH tricep extensions","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-27","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-30","focus":"Arms","exercise":"OHP","sets":"4","reps":"5","weight":"60","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-30","focus":"Arms","exercise":"Bicep curls on cable","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-30","focus":"Arms","exercise":"Deficit pushups","sets":"4","reps":"5","weight":"","pr":false,"sessionNotes":"","exNotes":"L side can't maintain strength in deficit. Going from knees."},{"week":9,"date":"2026-03-30","focus":"Arms","exercise":"Serratus punches","sets":"2","reps":"12","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-30","focus":"Arms","exercise":"Stir the pots","sets":"3","reps":"10","weight":"grey","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-30","focus":"Arms","exercise":"Bus drivers","sets":"2","reps":"1 min","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-27","focus":"Legs","exercise":"Gate openers and closers","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-27","focus":"Legs","exercise":"Soldiers","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-27","focus":"Legs","exercise":"WGS","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-27","focus":"Legs","exercise":"Inch worms","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-27","focus":"Legs","exercise":"Banded hip mobs- flexion and abduction","sets":"2 mins each","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":58,"dateRange":["2026-01-07","2026-03-30"],"initials":"MC"},{"name":"Stephanie Herbert","goals":"Tolerance to up and down movements is low d/t GLP-1s. Goal is general strength training.","isGroup":false,"sessions":[{"week":1,"date":"2026-01-05","focus":"Arms","exercise":"3-way shoulder","sets":"3","reps":"5 each","weight":"5","pr":false,"sessionNotes":"","exNotes":"Upset stomach after this exercise"},{"week":1,"date":"2026-01-05","focus":"Legs","exercise":"Walking lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-12","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"8","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-12","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"26","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-12","focus":"Arms","exercise":"3-way shoulder","sets":"3","reps":"5 each","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-12","focus":"Legs","exercise":"Good mornings","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Shoulder boxes","sets":"4","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Legs","exercise":"KB squats","sets":"4","reps":"8","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Legs","exercise":"Lateral walks","sets":"2 laps","reps":"","weight":"Light","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Full Body","exercise":"High planks","sets":"2","reps":"","weight":"1 min","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":8,"dateRange":["2026-01-05","2026-01-22"],"initials":"SH"},{"name":"Joan Adelaide","goals":"PHMhx of orothorexia. Goal is general strength training. Long rest breaks appropriate.","isGroup":false,"sessions":[{"week":1,"date":"2026-01-05","focus":"Arms","exercise":"SL RDLs","sets":"4","reps":"8","weight":"BW","pr":false,"sessionNotes":"","exNotes":"To relieve LBP"},{"week":1,"date":"2026-01-05","focus":"Arms","exercise":"Bird dogs","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-05","focus":"Arms","exercise":"Deadbugs","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"100","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Full Body","exercise":"Deadlift","sets":"4","reps":"5","weight":"135","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-27","focus":"Legs","exercise":"Goblet squats","sets":"4","reps":"10","weight":"31","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-27","focus":"Legs","exercise":"Glute bridges","sets":"4","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Legs","exercise":"Deadlift","sets":"4","reps":"5","weight":"145","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"Bench press","sets":"5","reps":"5","weight":"115","pr":false,"sessionNotes":"1x3","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Legs","exercise":"Deadlift","sets":"5","reps":"5","weight":"145","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-16","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"120","pr":false,"sessionNotes":"1x3, 1x1","exNotes":""},{"week":6,"date":"2026-02-19","focus":"Legs","exercise":"Deadlift","sets":"4","reps":"6","weight":"155","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"15","weight":"elevated","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-26","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-26","focus":"Arms","exercise":"Aarnold press","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-26","focus":"Arms","exercise":"SL row","sets":"3","reps":"8","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-26","focus":"Arms","exercise":"Shoulder boxes","sets":"3","reps":"5","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Arms","exercise":"Bench press","sets":"3","reps":"3","weight":"125","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Arms","exercise":"Planks","sets":"1","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-05","focus":"Legs","exercise":"KB squats","sets":"3","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-05","focus":"Legs","exercise":"KBS","sets":"3","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-05","focus":"Legs","exercise":"Walking lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Arms","exercise":"Shoulder boxes","sets":"3","reps":"5 each","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Arms","exercise":"DB flies","sets":"4","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Arms","exercise":"Tricep extensions","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Arms","exercise":"Planks","sets":"1","reps":"45s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-13","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-13","focus":"Legs","exercise":"KBS","sets":"4","reps":"12","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-13","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-18","focus":"Arms","exercise":"DB bench press","sets":"3","reps":"8","weight":"30","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-18","focus":"Arms","exercise":"Bicep curls","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-18","focus":"Arms","exercise":"Pushups from bench","sets":"3","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"KB squats","sets":"4","reps":"12","weight":"44","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"SL RDLs","sets":"2","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-26","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"105","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":23,"dateRange":["2026-01-05","2026-03-26"],"initials":"JA"},{"name":"Marissa Newhall","goals":"Working through some undiagnosed autoimmune stuff that makes it harder to move. Focus on slow and intentional full-body movement, and lifting heavy. | 10k in March, 10k in April, 10-mile trail race in May","isGroup":false,"sessions":[{"week":1,"date":"2026-01-07","focus":"Legs","exercise":"Banded hip mobs into flexion and side lunge","sets":"","reps":"2 mins each","weight":"BW","pr":false,"sessionNotes":"Body has been feeling better lately, but has not been as consistent with movement. Feels that stamina and endurance needs to improve.","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Legs","exercise":"WU: cat/camel, thread the needle, wall angels","sets":"","reps":"30s each","weight":"BW","pr":false,"sessionNotes":"","exNotes":"Do longer next time"},{"week":1,"date":"2026-01-07","focus":"Legs","exercise":"KB 1.5 squats","sets":"4","reps":"8","weight":"35","pr":false,"sessionNotes":"","exNotes":"Depth good"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"3-way shoulders","sets":"4","reps":"5 each","weight":"8","pr":false,"sessionNotes":"","exNotes":"Maybe try increasing weight next time"},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"Banded hip mobs into flexion and side lunge","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"WU: cat/camel, thread the needle, wall angels","sets":"","reps":"1 min each","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"2 laps walking lunges with 30s wall sit at each side","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"Deadlifts","sets":"4","reps":"5","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Full Body","exercise":"HS scoops","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Full Body","exercise":"Walking lunges with rotation","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Full Body","exercise":"Soldiers","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Full Body","exercise":"Inch worms","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Full Body","exercise":"WGS","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Full Body","exercise":"Side lunges","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Full Body","exercise":"Deadlifts","sets":"4","reps":"8","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-18","focus":"Legs","exercise":"Walking lunges with rotation","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-18","focus":"Legs","exercise":"Side lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-18","focus":"Legs","exercise":"Inch worms","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-18","focus":"Legs","exercise":"WGS","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-18","focus":"Legs","exercise":"Back squats","sets":"3","reps":"5","weight":"115","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-27","focus":"Full Body","exercise":"HS scoops","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-27","focus":"Full Body","exercise":"Walking lunges with rotation","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-27","focus":"Full Body","exercise":"Soldiers","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-27","focus":"Full Body","exercise":"Inch worms","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-27","focus":"Full Body","exercise":"Deadllifts","sets":"4","reps":"8","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-27","focus":"Full Body","exercise":"Wall sits","sets":"2","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Full Body","exercise":"Walking lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Full Body","exercise":"Side lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Full Body","exercise":"Inch worms","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Full Body","exercise":"WGS","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"65","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Preacher curls","sets":"3","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"High planks","sets":"2","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-12","focus":"Full Body","exercise":"HS scoops","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-12","focus":"Full Body","exercise":"Soldiers","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-12","focus":"Full Body","exercise":"WGS","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-12","focus":"Full Body","exercise":"Inch worms","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-12","focus":"Full Body","exercise":"Deadlifts","sets":"4","reps":"5","weight":"125","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-12","focus":"Full Body","exercise":"Wall sits","sets":"1","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":19,"dateRange":["2026-01-07","2026-03-12"],"initials":"MN"},{"name":"Mateo Ortega","goals":"Strength to do a planch and an inversion on pull up bar","isGroup":false,"sessions":[{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Bench press pyramid","sets":"","reps":"3,5,8,8,5,3","weight":"125, 115, 95, 95, 115, 125","pr":false,"sessionNotes":"Could do inversion with knees bent and hold. Shoulders fatigued more than chest during bench press.","exNotes":"Failed 125 due to too much shoulder extension on ascent. Talked straight bar path"},{"week":1,"date":"2026-01-05","focus":"Arms","exercise":"SUPERSET: high cable rows, pushups","sets":"2","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-20","focus":"Arms","exercise":"Deadlifts","sets":"3","reps":"8","weight":"95","pr":false,"sessionNotes":"","exNotes":"R LBP 1/10 after first set"},{"week":2,"date":"2026-01-20","focus":"Arms","exercise":"SUPERSET: lat pulldowns, seated cable rows, bear crawl hold","sets":"4","reps":"10,10,45s","weight":"50,30,BW","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-20","focus":"Arms","exercise":"SUPERSET: pullups, chin ups, scap pullups","sets":"4","reps":"3,3,10","weight":"","pr":false,"sessionNotes":"","exNotes":"1x9, 1x7, 1x5, 1x1.5; 1x3, 1x2, 1x3, 1x1; 1x15, 1x11, 1x13, 1x11"},{"week":3,"date":"2026-02-03","focus":"Arms","exercise":"Bench press drop set","sets":"3","reps":"","weight":"125, 115, 95","pr":false,"sessionNotes":"","exNotes":"6,3,5; 4,3,3; 2,2,4"},{"week":3,"date":"2026-02-03","focus":"Arms","exercise":"DB chest flies","sets":"4","reps":"8","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-17","focus":"","exercise":"MAX OUT hip thrust","sets":"","reps":"","weight":"265","pr":true,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-03-05","focus":"Arms","exercise":"Bench press 5/0/1","sets":"4","reps":"5","weight":"105","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-03-05","focus":"Arms","exercise":"SUPERSET: preacher's curls and seated bicep curls","sets":"3","reps":"5 each","weight":"20,25","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-03-05","focus":"Arms","exercise":"OH tricep extension","sets":"4","reps":"8","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-03-05","focus":"Arms","exercise":"Clapping pushups","sets":"1","reps":"as many as possible","weight":"","pr":false,"sessionNotes":"","exNotes":"18"},{"week":6,"date":"2026-03-17","focus":"Arms","exercise":"OHP","sets":"4","reps":"5","weight":"80","pr":false,"sessionNotes":"","exNotes":"2x4, 1x3"},{"week":6,"date":"2026-03-17","focus":"Arms","exercise":"SUPERSET: L sits + pullup negatives","sets":"5","reps":"30s, 8","weight":"105","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Arms"],"totalExercises":14,"dateRange":["2026-01-05","2026-03-17"],"initials":"MO"},{"name":"Ame Eduardo","goals":"General strength. LBP with flexion bias. B knee pain, L shoulder pain","isGroup":false,"sessions":[{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"No moneys","sets":"4","reps":"10","weight":"Red band","pr":false,"sessionNotes":"Alleviating L shoulder pain","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Manual 1st and 2nd rib mobs","sets":"1","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":"Alleviated shoulder pain with no recurrence in next session."},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Shoulder ER/IR isometrics","sets":"5","reps":"10s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Shoulder front raise and side raise","sets":"3","reps":"5 each","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"High planks","sets":"3","reps":"15s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"Bird dogs","sets":"2","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":"L knee pain with extension"},{"week":1,"date":"2026-01-09","focus":"Full Body","exercise":"Deadbugs","sets":"2","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"TKE","sets":"2","reps":"10","weight":"5s hold","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"Lateral walks","sets":"2 laps","reps":"","weight":"light","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":"1/4 depth"},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"TKE","sets":"2","reps":"10","weight":"10s hold","pr":false,"sessionNotes":"","exNotes":"L knee pain \"moves around.\" Was posterior yesterday, lateral today. \"Feels stiff.\""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"Squats with manual tibial ER","sets":"2","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"HS stretch","sets":"10","reps":"5s hold","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"HS ball roll ins","sets":"2","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Arms","exercise":"No moneys","sets":"4","reps":"10","weight":"Red","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Arms","exercise":"Pushups from bench","sets":"4","reps":"5","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Arms","exercise":"TRX rows","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"26","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Legs","exercise":"KBS","sets":"4","reps":"10","weight":"26","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Arms","exercise":"3-way shoulders","sets":"4","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"10","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Arms","exercise":"Pushups from bench","sets":"4","reps":"5","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-28","focus":"Arms","exercise":"Genies","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-28","focus":"Arms","exercise":"Bench pushups","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-28","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-28","focus":"Arms","exercise":"Skullcrushers","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-30","focus":"Legs","exercise":"KB squats","sets":"4","reps":"12","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-30","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-30","focus":"Legs","exercise":"SL glute bridges","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"Bench pushups","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-04","focus":"Arms","exercise":"Lateral and front raises","sets":"4","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-04","focus":"Legs","exercise":"Mini squats","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-04","focus":"Legs","exercise":"Mini wall sits","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-04","focus":"Legs","exercise":"Ball roll-ins","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Full Body","exercise":"DB thrusters","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Full Body","exercise":"Wall sits","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Full Body","exercise":"High planks","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-16","focus":"Arms","exercise":"Bench press","sets":"4","reps":"3","weight":"45","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-16","focus":"Arms","exercise":"Seated bicep curls over knee","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-16","focus":"Arms","exercise":"Shoulder boxes","sets":"4","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-16","focus":"Arms","exercise":"Cable tricep OH ext","sets":"3","reps":"10","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-18","focus":"Legs","exercise":"HS ball roll ins","sets":"3","reps":"10","weight":"gray","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-18","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-18","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Arms","exercise":"Front and lateral raises","sets":"3","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Arms","exercise":"Bottoms up KB OHP","sets":"4","reps":"8","weight":"9","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Arms","exercise":"Pushups from bench","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Legs","exercise":"Squats to bench","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Arms","exercise":"Pushups from bench","sets":"4","reps":"5","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Arms","exercise":"Shoulder boxes","sets":"4","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Arms","exercise":"Skullcrushers","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Arms","exercise":"Plank","sets":"1","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"Squat to bench","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"SL RDLs","sets":"3","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"1/2 elevated, 1/2 not","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Legs","exercise":"DB thrusters","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Arms","exercise":"Curl to press","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Arms","exercise":"Shoulder boxes","sets":"3","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Arms","exercise":"Tricep extensions","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Arms","exercise":"Planks","sets":"3","reps":"1 min","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Legs","exercise":"Walking lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Legs","exercise":"Bridges","sets":"3","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Legs","exercise":"SLR","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-06","focus":"Legs","exercise":"DB thrusters","sets":"4","reps":"12","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-06","focus":"Legs","exercise":"Tricep extensions","sets":"4","reps":"12","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-06","focus":"Legs","exercise":"Stir the pot","sets":"3","reps":"10","weight":"grey","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-06","focus":"Legs","exercise":"Ball roll-ins","sets":"3","reps":"10","weight":"grey","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-06","focus":"Legs","exercise":"Walking lunges","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-09","focus":"Arms","exercise":"Side raise > front raise","sets":"4","reps":"5 each ","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-09","focus":"Arms","exercise":"Pushups from bench","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-09","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-09","focus":"Arms","exercise":"Tricep extensions","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Legs","exercise":"KBS","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-11","focus":"Legs","exercise":"Raised calf raises","sets":"4","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-13","focus":"Arms","exercise":"Shoulder boxes","sets":"3","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-13","focus":"Arms","exercise":"DB thrusters","sets":"3","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-13","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"12","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-13","focus":"Arms","exercise":"Squats","sets":"4","reps":"12","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"Pushups from bench","sets":"4","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"SA DB rows","sets":"3","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"Skullcrushers","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"Planks","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Legs","exercise":"SL RDLs","sets":"3","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":"2 from ground, 2 raises"},{"week":10,"date":"2026-03-16","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"22","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-20","focus":"Legs","exercise":"Bicycles","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-20","focus":"Legs","exercise":"V-ups","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-20","focus":"Legs","exercise":"Russian twists","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"","exNotes":"Feet on ground, knees extended due to knee swelling"},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"Ball roll-ins","sets":"3","reps":"10","weight":"grey","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"Bridges on ball","sets":"3","reps":"10","weight":"grey","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Arms","exercise":"Front and lateral raises","sets":"4","reps":"12","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Arms","exercise":"Wall pushups","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Arms","exercise":"Planks","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-27","focus":"Full Body","exercise":"DB thrusters","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-27","focus":"Full Body","exercise":"Plank hip extensions","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-27","focus":"Full Body","exercise":"Curl to press","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-27","focus":"Full Body","exercise":"Walking lunges with rotation","sets":"3 laps","reps":"","weight":"6","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-27","focus":"Full Body","exercise":"Wall sit with OHP","sets":"2","reps":"1 min","weight":"6","pr":false,"sessionNotes":"","exNotes":""},{"week":12,"date":"2026-03-27","focus":"Full Body","exercise":"Shoulder boxes","sets":"4","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":12,"date":"2026-03-27","focus":"Full Body","exercise":"Pushups from bench","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":60,"dateRange":["2026-01-07","2026-03-27"],"initials":"AE"},{"name":"Mark Johnson","goals":"General strength","isGroup":false,"sessions":[{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"135","pr":false,"sessionNotes":"","exNotes":"Half depth with a spotter at 165#, last 2 sets at 135"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"DB chest flies","sets":"3","reps":"8","weight":"20","pr":false,"sessionNotes":"","exNotes":"1st set at 15, too light"},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Pushup/pullup","sets":"3","reps":"10/01","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"Back squat","sets":"3","reps":"6","weight":"205","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"Walking lunges with rotation","sets":"3 laps","reps":"","weight":"50","pr":false,"sessionNotes":"","exNotes":"Last set at 60"},{"week":1,"date":"2026-01-09","focus":"Legs","exercise":"Elevated calf raises","sets":"4","reps":"15","weight":"50","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Arms","exercise":"Bench press","sets":"4","reps":"6","weight":"145","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Arms","exercise":"SUPERSET: curls, skullcrushers, pushups","sets":"3","reps":"10,10,10","weight":"25,35, feet","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Arms","exercise":"3-way shoulders","sets":"3","reps":"5","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Legs","exercise":"Back squat","sets":"4","reps":"6","weight":"205","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Legs","exercise":"Bulgarian split squats","sets":"4","reps":"10","weight":"40 total","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Legs","exercise":"Heel-elevated calf raises","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-21","focus":"Arms","exercise":"Shoulder press","sets":"4","reps":"8","weight":"105","pr":false,"sessionNotes":"","exNotes":"Too hard"},{"week":3,"date":"2026-01-21","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-23","focus":"Full Body","exercise":"Deadlifts","sets":"4","reps":"5","weight":"215","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-23","focus":"Full Body","exercise":"Good mornings","sets":"4","reps":"10","weight":"40","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-23","focus":"Legs","exercise":"BSS","sets":"4","reps":"10","weight":"50","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-28","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"140","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-28","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"30","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-30","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"205","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"OHP","sets":"5","reps":"6","weight":"75","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"Barbell bicep curls","sets":"3","reps":"6","weight":"65","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-02","focus":"Arms","exercise":"High planks","sets":"4","reps":"15s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-04","focus":"Legs","exercise":"Deadlifts","sets":"4","reps":"6","weight":"195","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Arms","exercise":"Bench press","sets":"5","reps":"5","weight":"145","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Legs","exercise":"Seated hip flexion","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-06","focus":"Full Body","exercise":"Pushups- wide to narrow jumping","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-18","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"215","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Arms","exercise":"OHP","sets":"5","reps":"4","weight":"85","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Arms","exercise":"Seated bicep curls at 45d","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-20","focus":"Arms","exercise":"Renegade rows","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"225","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"BSS","sets":"4","reps":"10","weight":"60","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-23","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-25","focus":"Legs","exercise":"Back squat","sets":"4","reps":"6","weight":"225","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"165","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"185","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-02","focus":"Legs","exercise":"Bench press","sets":"4","reps":"6","weight":"165","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-09","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"175","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-09","focus":"Legs","exercise":"Back squat","sets":"4","reps":"3","weight":"235","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-13","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"185","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"Back squat","sets":"4","reps":"8","weight":"235","pr":false,"sessionNotes":"2x5 at 265","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"Bench press","sets":"3","reps":"5","weight":"185","pr":false,"sessionNotes":"","exNotes":""},{"week":10,"date":"2026-03-16","focus":"Arms","exercise":"OHP","sets":"4","reps":"5","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-23","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"235","pr":false,"sessionNotes":"2x8 at 265; 1x6 at 285","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Arms","exercise":"Bench press","sets":"1","reps":"1","weight":"195","pr":true,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Legs","exercise":"Back squat","sets":"3","reps":"3","weight":"315","pr":false,"sessionNotes":"","exNotes":""},{"week":11,"date":"2026-03-25","focus":"Legs","exercise":"Trap bar DLs","sets":"4","reps":"8","weight":"225","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":25,"dateRange":["2026-01-07","2026-03-25"],"initials":"MJ"},{"name":"Meredith Young","goals":"General strength. Lighter on arm strength because of blood clot. Was cleared for exercise.","isGroup":false,"sessions":[{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"DB OHP","sets":"3","reps":"10","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"3-way shoulders","sets":"3","reps":"5 each","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Tricep extension","sets":"3","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"31","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-07","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Legs","exercise":"SL glute bridges","sets":"3","reps":"8","weight":"BW","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"60s","weight":"BW","pr":false,"sessionNotes":"Did 1x60s, 1x45s, 2x30s","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Legs","exercise":"KB squats","sets":"4","reps":"12","weight":"26","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Legs","exercise":"KBS","sets":"4","reps":"12","weight":"26","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Arms","exercise":"Skullcrushers","sets":"4","reps":"15","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Full Body","exercise":"High planks","sets":"4","reps":"60s","weight":"","pr":false,"sessionNotes":"Last set at 53s","exNotes":""},{"week":1,"date":"2026-01-12","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"Walking lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Legs","exercise":"KBS","sets":"4","reps":"12","weight":"26","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Arms","exercise":"KB squats","sets":"4","reps":"12","weight":"26","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Arms","exercise":"3-way shoulders","sets":"4","reps":"3 each","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Full Body","exercise":"High planks","sets":"3","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-14","focus":"Full Body","exercise":"Wall sits","sets":"2","reps":"60s","weight":"","pr":false,"sessionNotes":"1x60s, 1x40s","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Arms","exercise":"DB OHP","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Arms","exercise":"Ball slams","sets":"4","reps":"15","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-04","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Legs","exercise":"SL RDLs","sets":"3","reps":"8","weight":"13","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Legs","exercise":"SL bridges","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"39","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Legs","exercise":"KBS","sets":"4","reps":"10","weight":"39","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Legs","exercise":"Sit up med ball tosses","sets":"3","reps":"10","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-20","focus":"Arms","exercise":"SUPERSET: mountain climbers, planks","sets":"3","reps":"30s each","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-20","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"Curtsy lunges","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"SL RDLs","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"KBS","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"KB squats","sets":"3","reps":"12","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-02","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-02","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-02","focus":"Legs","exercise":"SL RDLs","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-02","focus":"Legs","exercise":"Triple threat","sets":"3","reps":"10","weight":"grey","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-02","focus":"Legs","exercise":"Cossack squats","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-02","focus":"Legs","exercise":"Hip thrusts","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-02","focus":"Legs","exercise":"Squat jumps","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Tricep extension","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Pushups","sets":"5","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Lateral raises","sets":"4","reps":"10","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Front raises","sets":"4","reps":"10","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-04","focus":"Arms","exercise":"Planks","sets":"3","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-09","focus":"Arms","exercise":"Pushups","sets":"3","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-09","focus":"Arms","exercise":"Side plank hip taps","sets":"3","reps":"10 each","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-09","focus":"Arms","exercise":"DB OHP","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-09","focus":"Arms","exercise":"DB upright row","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-09","focus":"Arms","exercise":"Tricep extension","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-09","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-09","focus":"Arms","exercise":"Planks","sets":"3","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-11","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-11","focus":"Legs","exercise":"KBS","sets":"4","reps":"10","weight":"22","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-11","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-11","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"Lateral raises","sets":"4","reps":"10","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"Front raises","sets":"4","reps":"10","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"Pushups","sets":"4","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"Renegade rows","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"Planks","sets":"3","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"Skullcrushers","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Arms","exercise":"Side plank hip taps","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Legs","exercise":"Side lunges","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Legs","exercise":"SL squats","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Legs","exercise":"Calf raises","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Legs","exercise":"SL RDLs","sets":"3","reps":"8","weight":"13","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Legs","exercise":"Step ups","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-16","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"45s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-20","focus":"Legs","exercise":"DB thrusters","sets":"4","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-20","focus":"Legs","exercise":"Gorilla rows","sets":"4","reps":"5","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-20","focus":"Legs","exercise":"Plank hip extensions","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-20","focus":"Legs","exercise":"SL glute bridges","sets":"4","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-20","focus":"Legs","exercise":"Slow mountain climbers","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-20","focus":"Legs","exercise":"Side plank hip taps","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-20","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"45s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-25","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-25","focus":"Arms","exercise":"Lateral raises and forward raises","sets":"4","reps":"8","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-25","focus":"Arms","exercise":"Tricep extension","sets":"4","reps":"12","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-25","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-25","focus":"Arms","exercise":"DB bench press","sets":"4","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-25","focus":"Arms","exercise":"Reverse flies","sets":"4","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":9,"date":"2026-03-25","focus":"Arms","exercise":"Planks","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":null,"date":"","focus":"","exercise":"DEADLIFT","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":41,"dateRange":["2026-01-07","2026-03-25"],"initials":"MY"},{"name":"Dan Young","goals":"Lifting Heavy","isGroup":false,"sessions":[{"week":1,"date":"2026-01-07","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"155","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-21","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"115","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Arms","exercise":"Shoulder press","sets":"5","reps":"4","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-28","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"145","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"145","pr":false,"sessionNotes":"","exNotes":"1/2 depth d/t twinge in R LB"},{"week":4,"date":"2026-02-02","focus":"Arms","exercise":"Bench press","sets":"5","reps":"5","weight":"165","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-04","focus":"Legs","exercise":"Squat to bench","sets":"4","reps":"5","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-06","focus":"Arms","exercise":"OHP","sets":"5","reps":"5","weight":"100","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-16","focus":"Arms","exercise":"Bench press","sets":"5","reps":"3","weight":"175","pr":false,"sessionNotes":"","exNotes":"Failed 5 reps"},{"week":5,"date":"2026-03-04","focus":"Arms","exercise":"Back squat","sets":"5","reps":"3","weight":"115","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-11","focus":"Arms","exercise":"Shoulder press","sets":"5","reps":"4","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-11","focus":"Arms","exercise":"Preacher's curls","sets":"4","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-11","focus":"Arms","exercise":"Pushups","sets":"2","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-13","focus":"Arms","exercise":"Deadlifts","sets":"3","reps":"8","weight":"115","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-20","focus":"Arms","exercise":"Back squat","sets":"4","reps":"5","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-25","focus":"Arms","exercise":"Bench press","sets":"1","reps":"1","weight":"185","pr":true,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Arms"],"totalExercises":8,"dateRange":["2026-01-07","2026-03-25"],"initials":"DY"},{"name":"Matias Tabb","goals":"Prepping for top surgery","isGroup":false,"sessions":[{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"85","pr":false,"sessionNotes":"","exNotes":"1x65, 4x70"},{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"SUPERSET: tricep extension and pushups","sets":"3","reps":"10,10","weight":"20, BW","pr":false,"sessionNotes":"","exNotes":"Supine skullcrushers d/t lack of shoulder mobility"},{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"SUPERSET: reverse flies, lat pulldowns","sets":"2","reps":"10,10","weight":"12/10","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"20","pr":false,"sessionNotes":"Last 2 sets split between 20s and 15s","exNotes":"Has 15s at home, wants to do heavier than that"},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Reverse flies","sets":"3","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Renegade rows","sets":"3","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"SA KB rows","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Lat pulldowns","sets":"4","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"SUPERSET: 8 DB OHP, 8 side raise to forward raise","sets":"3","reps":"","weight":"15,8","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Plank on elbows","sets":"1","reps":"2 mins","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Bench press dropsets","sets":"2","reps":"5,10,15; 5,11,16","weight":"75,65,45","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Chest pass thrus","sets":"4","reps":"8","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Elevated cable chest flies","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Pushups","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":"<50% from feet "},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"High planks","sets":"1","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Posterior delt flies","sets":"3","reps":"10","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Cable flies","sets":"3","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Pushups","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Bicep descending ladder","sets":"10/01","reps":"","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"OHP","sets":"4","reps":"5,5","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Plank high fives","sets":"2","reps":"1 min","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-03","focus":"Arms","exercise":"OHP Drop sets","sets":"3","reps":"","weight":"55, 45, 35","pr":false,"sessionNotes":"","exNotes":"5, 5, 7; 4, 5, 11; 3,5,9"},{"week":5,"date":"2026-02-03","focus":"Arms","exercise":"SUPERSET: 10 mountain climbers, 10 crossed mountain climbers, 30s high plank hold","sets":"3","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-03","focus":"Arms","exercise":"SA SB rows","sets":"3","reps":"8","weight":"30","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-03","focus":"Arms","exercise":"Supine skullcrushers","sets":"3","reps":"10","weight":"30","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-01-04","focus":"Legs","exercise":"Back squats","sets":"4","reps":"5","weight":"115","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-01-04","focus":"Legs","exercise":"SUPERSET: KBS, jump squats","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-17","focus":"Arms","exercise":"Bench press dropsets","sets":"","reps":"10,10,15; 9,7,14; 4,4,13","weight":"75,65,45","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-17","focus":"Arms","exercise":"Seated bicep curls over knee","sets":"3","reps":"8","weight":"25","pr":false,"sessionNotes":"6 reps at 25, 2 reps at 20","exNotes":""},{"week":6,"date":"2026-02-17","focus":"Arms","exercise":"Pushups","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-24","focus":"Arms","exercise":"Renegade rows","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"Half reps at 15","exNotes":""},{"week":7,"date":"2026-02-24","focus":"Arms","exercise":"SUPERSET: seated bicep curls at 45d, upright seated bicep curls, max hammer curl > pronated curl","sets":"2","reps":"10, 10, 4-6","weight":"20, 15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-24","focus":"Arms","exercise":"SUPERSET: supine skullcrushers, wide pushups, pushups, diamond pushups","sets":"2","reps":"10/10","weight":"20, 15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Tricep ext","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Aarnold press","sets":"4","reps":"8","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Bus drivers","sets":"3","reps":"60s","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Jumping pushups","sets":"5","reps":"5","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Bicep curl with iso hold","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Plank high fives","sets":"1","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-26","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"90","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-26","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-26","focus":"Arms","exercise":"Jumping pushups","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":"No eccentric control- jump>pushup as different movements"},{"week":8,"date":"2026-03-26","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"5","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-26","focus":"Arms","exercise":"Shoulder hell","sets":"1","reps":"10","weight":"2.5","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Arms"],"totalExercises":36,"dateRange":["2026-01-04","2026-03-26"],"initials":"MT"},{"name":"Liana Owens","goals":"Prepping for top surgery","isGroup":false,"sessions":[{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"Bench press","sets":"4","reps":"6","weight":"85","pr":false,"sessionNotes":"","exNotes":"1x65, 1x70 (3), 2x65 (5,4)"},{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"SUPERSET: tricep extension and pushups","sets":"3","reps":"10/10","weight":"15, knees","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"SUPERSET: reverse flies, lat pulldowns","sets":"2","reps":"10,10","weight":"10/10","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Reverse flies","sets":"3","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Renegade rows","sets":"3","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"SA KB rows","sets":"4","reps":"10","weight":"31","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Lat pulldowns","sets":"4","reps":"12","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"SUPERSET: 8 DB OHP, 8 side raise to forward raise","sets":"3","reps":"","weight":"12,5","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Arms","exercise":"Plank on elbows","sets":"1","reps":"2 mins","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Bench press dropsets","sets":"2","reps":"5,7,9; 2,3,1","weight":"75,65,45","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Chest pass thrus","sets":"4","reps":"8","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Elevated cable chest flies","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"Pushups","sets":"3","reps":"10","weight":"BW","pr":false,"sessionNotes":"","exNotes":"From knees"},{"week":3,"date":"2026-01-22","focus":"Arms","exercise":"High planks","sets":"1","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Posterior delt flies","sets":"3","reps":"10","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Cable flies","sets":"3","reps":"10","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Pushups","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Bicep descending ladder","sets":"10/01","reps":"","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"OHP","sets":"4","reps":"5,5","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-01-29","focus":"Arms","exercise":"Plank high fives","sets":"2","reps":"1 min","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-01-04","focus":"Legs","exercise":"Back squats","sets":"4","reps":"5","weight":"115","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-01-04","focus":"Legs","exercise":"SUPERSET: KBS, squat jumps","sets":"4","reps":"15","weight":"39","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-17","focus":"Arms","exercise":"Bench press dropsets","sets":"3","reps":"7,7,15; 4,4,7; ","weight":"75,65,45","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-17","focus":"Arms","exercise":"Seated bicep curls over knee","sets":"3","reps":"8","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-02-17","focus":"Arms","exercise":"Pushups","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-24","focus":"Arms","exercise":"Renegade rows","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"Half reps at 15","exNotes":""},{"week":7,"date":"2026-02-24","focus":"Arms","exercise":"SUPERSET: seated bicep curls at 45d, upright seated bicep curls, max hammer curl > pronated curl","sets":"2","reps":"10, 10, 4-6","weight":"15, 12","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-24","focus":"Arms","exercise":"SUPERSET: supine skullcrushers, wide pushups, pushups, diamond pushups","sets":"2","reps":"10/10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Tricep ext","sets":"3","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Aarnold press","sets":"4","reps":"8","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Bus drivers","sets":"3","reps":"60s","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Jumping pushups","sets":"5","reps":"5","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Bicep curl with iso hold","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-02-27","focus":"Arms","exercise":"Plank high fives","sets":"1","reps":"60s","weight":"","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Arms"],"totalExercises":30,"dateRange":["2026-01-04","2026-02-27"],"initials":"LO"},{"name":"Jay Rupp","goals":"General strength training, possible top surgery","isGroup":false,"sessions":[{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"52.5","pr":false,"sessionNotes":"Wants to work on lower back strengthening","exNotes":"Failed 55 for 1"},{"week":2,"date":"2026-01-15","focus":"Full Body","exercise":"Bird dogs","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Full Body","exercise":"Paloff press","sets":"2","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-15","focus":"Full Body","exercise":"KBS","sets":"3","reps":"12","weight":"22","pr":false,"sessionNotes":"Wants to work on lower back strength","exNotes":""}],"focusAreas":["Full Body","Arms"],"totalExercises":4,"dateRange":["2026-01-08","2026-01-15"],"initials":"JR"},{"name":"Grace Gilker","goals":"General strength training. L LBP with radiating symptoms to L leg and foot.","isGroup":false,"sessions":[{"week":1,"date":"2026-01-08","focus":"Full Body","exercise":"Deadlift","sets":"3","reps":"3","weight":"185","pr":true,"sessionNotes":"Cueing for hip extension out of the top","exNotes":"3 RM"},{"week":1,"date":"2026-01-08","focus":"Full Body","exercise":"Walking lunges with rotation","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"Easy. Add weight in future sessions","exNotes":""},{"week":1,"date":"2026-01-08","focus":"Full Body","exercise":"DB thrusters","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-08","focus":"Legs","exercise":"Sciatic tensioners","sets":"2","reps":"10","weight":"","pr":false,"sessionNotes":"HEP","exNotes":""},{"week":1,"date":"2026-01-08","focus":"Arms","exercise":"Planks","sets":"3","reps":"1 min","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"Good mornings","sets":"3","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"HS scoops","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"Walking lunges with rotation","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"Soldiers","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"Inch worms","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"WGS","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"Side lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"Banded lateral walks","sets":"2 laps","reps":"","weight":"Light","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-23","focus":"Full Body","exercise":"Plank with hip ext","sets":"","reps":"10/side","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-24","focus":"Legs","exercise":"Walking lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-24","focus":"Legs","exercise":"Soldiers","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-24","focus":"Legs","exercise":"Side lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-24","focus":"Legs","exercise":"Kickstand squats","sets":"2","reps":"10","weight":"13","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-24","focus":"Legs","exercise":"Captain morgans","sets":"3","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-24","focus":"Legs","exercise":"SL around the worlds + halos","sets":"2","reps":"10 each","weight":"9","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-24","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-12","focus":"Legs","exercise":"WGS","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-12","focus":"Legs","exercise":"Inch worms","sets":"1 lap","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-12","focus":"Legs","exercise":"Deadlift","sets":"3","reps":"4","weight":"185","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-12","focus":"Legs","exercise":"Wall sits","sets":"1","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":19,"dateRange":["2026-01-08","2026-03-12"],"initials":"GG"},{"name":"August Garry","goals":"Form checks","isGroup":false,"sessions":[{"week":1,"date":"2026-01-09","focus":"Full Body","exercise":"Deadlift","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"GOAL: 235 1RM; 215 5x5","exNotes":""},{"week":1,"date":"2026-01-09","focus":"Full Body","exercise":"Squat","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"GOAL: 205 1x5","exNotes":"SUPERSET with captain morgans"},{"week":1,"date":"2026-01-09","focus":"Arms","exercise":"Bench","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"GOAL: 135 2x5","exNotes":"SUPERSET with chest flies"},{"week":2,"date":"2026-02-06","focus":"Full Body","exercise":"Deadlift","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"GOAL: 255 1RM; 235x5","exNotes":"LBP during DLs "},{"week":2,"date":"2026-02-06","focus":"Full Body","exercise":"Squat","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"GOAL: 215 1x5","exNotes":""},{"week":2,"date":"2026-02-06","focus":"Arms","exercise":"Bench","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"GOAL: 135 1x5","exNotes":"5s eccentric when possible, eccentric pushups, wider grip for BP"}],"focusAreas":["Full Body","Arms"],"totalExercises":3,"dateRange":["2026-01-09","2026-02-06"],"initials":"AG"},{"name":"Spencer Lynden-Jones","goals":"General strength training. Prepping for top surgery. Cervicogenic headaches","isGroup":false,"sessions":[{"week":1,"date":"2026-01-09","focus":"Arms","exercise":"Bench press","sets":"6","reps":"3","weight":"95","pr":false,"sessionNotes":"","exNotes":"Couldn't do more than 3 reps at 95. 3x3, 2x2, 1x1"},{"week":1,"date":"2026-01-09","focus":"Full Body","exercise":"DB thrusters","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Arms","exercise":"DB chest flies","sets":"4","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-16","focus":"Arms","exercise":"SUPERSET: 10 bicep curls, 10 pushups, 10 skullcrushers","sets":"3","reps":"","weight":"15, BW, 15","pr":false,"sessionNotes":"Has had tension HAs all week.","exNotes":"Hands on bench for pushups due to chest fatigue"},{"week":2,"date":"2026-01-16","focus":"Arms","exercise":"DB OHP palms netural, palms ER","sets":"4","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-17","focus":"Arms","exercise":"Hinge cable rows","sets":"3","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":"Intentional DNF"},{"week":3,"date":"2026-02-17","focus":"Arms","exercise":"Squat with plate OHP","sets":"3","reps":"10","weight":"10","pr":false,"sessionNotes":"","exNotes":"Intentional DNF"},{"week":3,"date":"2026-02-17","focus":"Arms","exercise":"Pushups from knees","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":"Intentional serratus press and DNF"},{"week":3,"date":"2026-02-17","focus":"Arms","exercise":"Stir the pot","sets":"3","reps":"10 CW/10 CCW","weight":"gray","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-02-17","focus":"Arms","exercise":"Bench Y's","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-19","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"85","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-19","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-19","focus":"Arms","exercise":"Pushups from knees","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":"2x7, 1x5"}],"focusAreas":["Full Body","Arms"],"totalExercises":11,"dateRange":["2026-01-09","2026-03-19"],"initials":"SL"},{"name":"Kalia Crowder","goals":"General strength training. More legs to tone hips to reduce dysphoria.","isGroup":false,"sessions":[{"week":1,"date":"2026-01-16","focus":"Arms","exercise":"Bench press","sets":"4","reps":"3","weight":"70","pr":false,"sessionNotes":"Took a long break, changed to shots for T","exNotes":"2x75"},{"week":1,"date":"2026-01-16","focus":"Arms","exercise":"Seated DB OHP","sets":"4","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-16","focus":"Arms","exercise":"Pushups","sets":"4","reps":"12","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-01-16","focus":"Arms","exercise":"3-way shoulder","sets":"3","reps":"5","weight":"8","pr":false,"sessionNotes":"1x5","exNotes":""},{"week":1,"date":"2026-01-16","focus":"Full Body","exercise":"Ball slams","sets":"4","reps":"10","weight":"20","pr":false,"sessionNotes":"1x10","exNotes":""},{"week":1,"date":"2026-01-16","focus":"Full Body","exercise":"KBS","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-19","focus":"Legs","exercise":"KB squats","sets":"4","reps":"10","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-19","focus":"Legs","exercise":"KB lunges","sets":"3","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-19","focus":"Full Body","exercise":"Stir the pot","sets":"3","reps":"10","weight":"Gray","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-19","focus":"Full Body","exercise":"SA Farmer's Carries","sets":"4","reps":"45s","weight":"53","pr":false,"sessionNotes":"2x44, 2x53","exNotes":"Went back down to the lower weight d/t grip"},{"week":2,"date":"2026-01-19","focus":"Arms","exercise":"3-way shoulders","sets":"3","reps":"5","weight":"8","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-01-19","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":"All 4 sets from feet, add intensity next time"},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"KB squats","sets":"4","reps":"12","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-01-30","focus":"Arms","exercise":"3-way shoulders","sets":"4","reps":"5","weight":"8","pr":false,"sessionNotes":"","exNotes":"Pain in lateral shoulder with abd"},{"week":3,"date":"2026-01-30","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"20","pr":false,"sessionNotes":"","exNotes":"1x15, 3x20"},{"week":3,"date":"2026-01-30","focus":"Arms","exercise":"Pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"75","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Arms","exercise":"Seated bicep curls over knee","sets":"3","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Arms","exercise":"Cable OH tricep ext","sets":"4","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Arms","exercise":"Cable OH tricep ext","sets":"4","reps":"8","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Arms","exercise":"Pushups wide <>narrow","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-16","focus":"Arms","exercise":"Mountain climbers > crossed > plank","sets":"4","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-20","focus":"Legs","exercise":"Walking lunges","sets":"2 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-20","focus":"Legs","exercise":"Back squats to bench","sets":"4","reps":"5","weight":"65","pr":false,"sessionNotes":"","exNotes":"Cueing needed for tripod position and hips back"},{"week":4,"date":"2026-02-20","focus":"Legs","exercise":"Good mornings","sets":"3","reps":"8","weight":"45","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-20","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-20","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-02-20","focus":"Legs","exercise":"SUPERSET: 1 lap duck walks, 1 min wall sits","sets":"2","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"Deadlifts","sets":"4","reps":"5","weight":"105","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"KBS","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":"Go up in weight next time"},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"KB squats","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"Triple threat","sets":"3","reps":"10","weight":"gray","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-23","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-25","focus":"Arms","exercise":"OHP","sets":"4","reps":"5","weight":"45","pr":false,"sessionNotes":"","exNotes":"3x50"},{"week":5,"date":"2026-02-25","focus":"Arms","exercise":"Front > side raises","sets":"3","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-25","focus":"Arms","exercise":"Renegade rows","sets":"4","reps":"5","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-25","focus":"Arms","exercise":"Reverse flies","sets":"3","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-25","focus":"Arms","exercise":"KB pass thrus","sets":"3","reps":"20","weight":"22","pr":false,"sessionNotes":"","exNotes":""},{"week":5,"date":"2026-02-25","focus":"Arms","exercise":"Bus drivers","sets":"3","reps":"60s","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-20","focus":"Legs","exercise":"Good mornings","sets":"3","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-20","focus":"Legs","exercise":"Curtsy lunges","sets":"3","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-20","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"35","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-20","focus":"Legs","exercise":"SL hip thrusts","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-20","focus":"Legs","exercise":"BSS","sets":"3","reps":"8","weight":"24","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-20","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":6,"date":"2026-03-20","focus":"Legs","exercise":"Wall sits","sets":"2","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-23","focus":"Arms","exercise":"OHP","sets":"4","reps":"6","weight":"45","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-23","focus":"Arms","exercise":"Lateral raises","sets":"4","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-23","focus":"Arms","exercise":"Preacher's curls","sets":"3","reps":"10","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-23","focus":"Arms","exercise":"TRX OH triceps ext","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-23","focus":"Arms","exercise":"Jumping pushups","sets":"5","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-23","focus":"Arms","exercise":"Mountain climbers crossed","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-23","focus":"Arms","exercise":"Reverse flies","sets":"3","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"30","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"Triple threat","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"SL hip thrusts","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"Walking lunges with rotation","sets":"3","reps":"","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"Good mornings","sets":"4","reps":"8","weight":"25","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"SL RDLs","sets":"3","reps":"8","weight":"13","pr":false,"sessionNotes":"","exNotes":""},{"week":7,"date":"2026-03-27","focus":"Legs","exercise":"Wall sits","sets":"2","reps":"90s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-30","focus":"Arms","exercise":"OHP","sets":"4","reps":"5","weight":"47.5","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-30","focus":"Arms","exercise":"TRX OH triceps ext","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-30","focus":"Arms","exercise":"Bicep curls on cable macine","sets":"4","reps":"10","weight":"20","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-30","focus":"Arms","exercise":"Deficit pushups","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-30","focus":"Arms","exercise":"Renegade rows","sets":"4","reps":"5","weight":"15","pr":false,"sessionNotes":"","exNotes":""},{"week":8,"date":"2026-03-30","focus":"Arms","exercise":"Reverse flies","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":42,"dateRange":["2026-01-16","2026-03-30"],"initials":"KC"},{"name":"Jane Tabb","goals":"General strength training. More legs to tone hips to reduce dysphoria.","isGroup":false,"sessions":[{"week":1,"date":"2026-02-04","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"115","pr":false,"sessionNotes":"Took a long break, changed to shots for T","exNotes":"2x75"},{"week":1,"date":"2026-02-04","focus":"Legs","exercise":"SUPERSET: KBS, squat jumps","sets":"4","reps":"15","weight":"35","pr":false,"sessionNotes":"Took a long break, changed to shots for T","exNotes":"2x75"}],"focusAreas":["Legs"],"totalExercises":2,"dateRange":["2026-02-04","2026-02-04"],"initials":"JT"},{"name":"Ashe Etherton","goals":"Lift heavy shit","isGroup":false,"sessions":[{"week":1,"date":"2026-03-05","focus":"Legs","exercise":"Deadlift","sets":"1","reps":"1","weight":"150","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-03-05","focus":"Legs","exercise":"SL RDLs","sets":"3","reps":"8","weight":"9","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-03-05","focus":"Legs","exercise":"SL glute bridges","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-03-05","focus":"Legs","exercise":"Captain morgans","sets":"2","reps":"30s","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-03-10","focus":"Arms","exercise":"OHP","sets":"4","reps":"3","weight":"45","pr":false,"sessionNotes":"","exNotes":"Wider grip"},{"week":2,"date":"2026-03-10","focus":"Arms","exercise":"Shoulder boxes","sets":"3","reps":"5","weight":"5","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-03-10","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-03-10","focus":"Arms","exercise":"Tricep extensions","sets":"4","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":""},{"week":2,"date":"2026-03-10","focus":"Arms","exercise":"Wall pushups","sets":"3","reps":"5","weight":"","pr":false,"sessionNotes":"","exNotes":"Failed knee pushups and pushups from bench (2 reps from bench)"},{"week":3,"date":"2026-03-17","focus":"Legs","exercise":"Deadlift","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"Form check","exNotes":"Hinge looked good, reduce weight to maintain it"},{"week":3,"date":"2026-03-17","focus":"Legs","exercise":"Back squat","sets":"4","reps":"5","weight":"95","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-03-17","focus":"Legs","exercise":"Walking lunges","sets":"3 laps","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-03-17","focus":"Legs","exercise":"Wall sits","sets":"3","reps":"1 min","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-26","focus":"Arms","exercise":"Bench press","sets":"3","reps":"3","weight":"57.5","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-26","focus":"Arms","exercise":"Bicep curls","sets":"3","reps":"10","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-26","focus":"Arms","exercise":"DB OHP","sets":"3","reps":"8","weight":"12","pr":false,"sessionNotes":"","exNotes":""},{"week":4,"date":"2026-03-26","focus":"Arms","exercise":"Reverse flies","sets":"3","reps":"8","weight":"10","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Arms"],"totalExercises":15,"dateRange":["2026-03-05","2026-03-26"],"initials":"AE"},{"name":"Gaggle Travel Workouts","goals":"Lift heavy shit","isGroup":true,"sessions":[{"week":1,"date":"2026-03-07","focus":"Arms","exercise":"Jumping pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"Jane, Sim, Mitchell","exNotes":""},{"week":1,"date":"2026-03-07","focus":"Arms","exercise":"3-way pushups","sets":"3","reps":"5 each","weight":"","pr":false,"sessionNotes":"Jane jumped, Sim from knees","exNotes":"Jane jumped, Sim from knees"},{"week":1,"date":"2026-03-07","focus":"Arms","exercise":"Side plank hip taps","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"Jane, Sim, Mitchell","exNotes":""},{"week":1,"date":"2026-03-08","focus":"Legs","exercise":"Squats + lunges","sets":"2","reps":"10 each","weight":"","pr":false,"sessionNotes":"Jane, Sim, Mitchell","exNotes":""},{"week":1,"date":"2026-03-08","focus":"Legs","exercise":"SUPERSET: squat jumps + fire hydrants","sets":"4","reps":"15, 8 each","weight":"","pr":false,"sessionNotes":"Jane, Sim, Mitchell","exNotes":""},{"week":1,"date":"2026-03-08","focus":"Legs","exercise":"SUPERSET: lunge jumps + SL glute bridges","sets":"3","reps":"10/10","weight":"","pr":false,"sessionNotes":"Jane, Sim, Mitchell","exNotes":""},{"week":1,"date":"2026-03-08","focus":"Legs","exercise":"Wall sits","sets":"2","reps":"90s","weight":"","pr":false,"sessionNotes":"Jane, Sim, Mitchell","exNotes":""},{"week":1,"date":"2026-03-09","focus":"Full Body","exercise":"SUPERSET: V-ups + reverse crunches + 6 inch hold","sets":"4","reps":"10, 10, 30s","weight":"","pr":false,"sessionNotes":"Jane","exNotes":""},{"week":1,"date":"2026-03-09","focus":"Full Body","exercise":"Deadbugs","sets":"3","reps":"10 each, 3s hold","weight":"","pr":false,"sessionNotes":"Jane","exNotes":""},{"week":1,"date":"2026-03-09","focus":"Full Body","exercise":"Russian twists","sets":"4","reps":"20","weight":"","pr":false,"sessionNotes":"Jane","exNotes":""},{"week":2,"date":"2026-03-17","focus":"Legs","exercise":"SUPERSET: fire hydrants + SL bridges","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":2,"date":"2026-03-17","focus":"Legs","exercise":"SUPERSET: heel-elevated squats + calf raises","sets":"4","reps":"10/15","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":2,"date":"2026-03-17","focus":"Legs","exercise":"SL RDLs","sets":"3","reps":"12","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":2,"date":"2026-03-17","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"2 mins","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":3,"date":"2026-03-25","focus":"Full Body","exercise":"V-ups","sets":"3","reps":"12","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":3,"date":"2026-03-25","focus":"Full Body","exercise":"SUPERSET: reverse crunches + 30s hold","sets":"3","reps":"12, 30s","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":3,"date":"2026-03-25","focus":"Full Body","exercise":"SUPERSET: mountain climbers > crossed mountain climbers","sets":"3","reps":"10 each","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":3,"date":"2026-03-25","focus":"Full Body","exercise":"SUPERSET: downward dogs > up up down downs","sets":"3","reps":"5 each","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":3,"date":"2026-03-25","focus":"Full Body","exercise":"Plank on elbows","sets":"1","reps":"2 min","weight":"","pr":false,"sessionNotes":"Sim and Mitchell","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Arms","exercise":"DB OHP","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"Jane: 15","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Arms","exercise":"Front and lateral raises","sets":"3","reps":"8","weight":"","pr":false,"sessionNotes":"Jane: 10","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Arms","exercise":"SUPERSET: bicep curls and pushups","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"Jane: 15","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Arms","exercise":"Reverse flies","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"Jane: 10","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Arms","exercise":"Side planks","sets":"1 min","reps":"","weight":"","pr":false,"sessionNotes":"Jane and Mitchell","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Legs","exercise":"1.5 squats","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"Jane: 35; Mitchell: 35; Sim: 30","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Legs","exercise":"SL RDLS + good mornings","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"Everyone: 15","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Legs","exercise":"BSS","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":3,"date":"2026-03-26","focus":"Legs","exercise":"Wall sits","sets":"4","reps":"2 mins","weight":"","pr":false,"sessionNotes":"Sim: 40; Mitchell: 35: Jane and Lili: 30","exNotes":""},{"week":3,"date":"2026-03-28","focus":"Full Body","exercise":"Mountain climberes + up up down downs","sets":"4","reps":"2 mins","weight":"","pr":false,"sessionNotes":"Sim: 40; Mitchell: 35: Jane and Lili: 30","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":27,"dateRange":["2026-03-07","2026-03-28"],"initials":"GT"},{"name":"Gaggle In-Person Workouts","goals":"Lift heavy shit","isGroup":true,"sessions":[{"week":1,"date":"2026-03-19","focus":"Arms","exercise":"Bench press","sets":"4","reps":"5","weight":"","pr":false,"sessionNotes":"Mitchell: 135; Em and Liana: 75: Sim: 55","exNotes":""},{"week":1,"date":"2026-03-19","focus":"Arms","exercise":"SUPERSET: 10 DB OHP, 10 pushups","sets":"3","reps":"","weight":"","pr":false,"sessionNotes":"Mitchell: 25; Em and Liana: 15; Sim: 12","exNotes":""},{"week":1,"date":"2026-03-19","focus":"Arms","exercise":"Bicep curls","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"Mitchell: 25; Em and Liana: 15; Sim: 15","exNotes":"Em did some reps at 20 and some at 15"},{"week":1,"date":"2026-03-19","focus":"Arms","exercise":"Thunder pushup finisher","sets":"","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":"Em did some reps at 20 and some at 15"},{"week":1,"date":"2026-03-20","focus":"Full Body","exercise":"SL V-ups","sets":"3","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-03-20","focus":"Full Body","exercise":"Russian twists","sets":"3","reps":"20","weight":"","pr":false,"sessionNotes":"Mitchell: 20, Sim: 8; Jane: 14","exNotes":""},{"week":1,"date":"2026-03-20","focus":"Full Body","exercise":"Weighted situps","sets":"3","reps":"12","weight":"","pr":false,"sessionNotes":"Mitchell: 20, Sim: 8; Jane: 14","exNotes":""},{"week":1,"date":"2026-03-20","focus":"Full Body","exercise":"Stir the pot","sets":"4","reps":"10","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-03-20","focus":"Full Body","exercise":"Bring Sally Up leg raise finisher","sets":"1","reps":"","weight":"","pr":false,"sessionNotes":"Sim needs weight between her legs next time","exNotes":""},{"week":1,"date":"2026-03-21","focus":"Legs","exercise":"Back squats","sets":"4","reps":"5","weight":"","pr":false,"sessionNotes":"Mitchell: 135; Sim: 95; Em: 62 KB","exNotes":""},{"week":1,"date":"2026-03-21","focus":"Legs","exercise":"SUPERSET: 10 BSS, 15 squat jumps","sets":"3","reps":"","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-03-21","focus":"Legs","exercise":"Calf raises on DBs","sets":"4","reps":"15","weight":"","pr":false,"sessionNotes":"","exNotes":""},{"week":1,"date":"2026-03-21","focus":"Legs","exercise":"Wall sits","sets":"2","reps":"2 mins","weight":"","pr":false,"sessionNotes":"Mitchell: 35; Sim: 45: Em: 25","exNotes":""},{"week":1,"date":"2026-03-23","focus":"Arms","exercise":"OHP","sets":"4","reps":"5","weight":"","pr":false,"sessionNotes":"Mitchell: 75; Sim: 40: Em: 60","exNotes":""},{"week":1,"date":"2026-03-23","focus":"Arms","exercise":"Lateral raises","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"Mitchell: 20; Sim: 10: Em: 12","exNotes":""},{"week":1,"date":"2026-03-23","focus":"Arms","exercise":"Front raises","sets":"4","reps":"8","weight":"","pr":false,"sessionNotes":"Mitchell: 12; Sim: 8: Em: 10","exNotes":""},{"week":1,"date":"2026-03-23","focus":"Arms","exercise":"Plank high fives","sets":"2","reps":"1 min","weight":"","pr":false,"sessionNotes":"","exNotes":""}],"focusAreas":["Legs","Full Body","Arms"],"totalExercises":17,"dateRange":["2026-03-19","2026-03-23"],"initials":"GI"}];
+
+// ── State ──
+let allClients = [];     // [{id, name, goals, isGroup, isArchived, defaultFocus, sessionCount, lastDate}]
+let currentClient = null;
+let clientSessions = []; // loaded sessions for current client
+let progressChart = null, weeklyChart = null;
+let exRowCount = 0;
+let isNewGroup = false;
+let showArchived = false;
+
+// ── Date helpers ──
+function todayStr() { return new Date().toLocaleDateString('en-CA'); }
+function fmtDate(d) {
+  if (!d) return '';
+  try { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric',year:'numeric'}); }
+  catch(e) { return d; }
+}
+function fmtDateShort(d) {
+  if (!d) return '';
+  try { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {month:'short',day:'numeric'}); }
+  catch(e) { return d; }
+}
+function displayNow() {
+  return new Date().toLocaleDateString('en-US', {weekday:'short',month:'long',day:'numeric',year:'numeric'});
+}
+
+// ── Loading UI ──
+function setLoading(pct, msg) {
+  document.getElementById('loading-bar').style.width = pct + '%';
+  document.getElementById('loading-msg').textContent = msg;
+}
+
+// ── INIT ──
+async function init() {
+  setLoading(10, 'Connecting to database…');
+  document.getElementById('select-date').textContent = displayNow();
+  document.getElementById('header-date').textContent = displayNow();
+
+  try {
+    setLoading(25, 'Checking for existing data…');
+    const metaRef = doc(db, 'meta', 'seed');
+    const metaSnap = await getDoc(metaRef);
+    const seeded = metaSnap.exists() && metaSnap.data().seeded === true;
+
+    if (!seeded) {
+      setLoading(35, 'First run — seeding client history…');
+      await seedData();
+      await setDoc(metaRef, { seeded: true, seededAt: new Date().toISOString() });
+      setLoading(85, 'Seed complete!');
+    } else {
+      setLoading(50, 'Loading clients…');
+    }
+
+    await loadClients();
+    setLoading(100, 'Ready!');
+    setTimeout(() => {
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('client-select').classList.add('visible');
+    }, 400);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('loading-msg').textContent = '⚠️ Error: ' + e.message;
+  }
+}
+
+// ── SEED ──
+async function seedData() {
+  const BATCH_SIZE = 400;
+  let ops = [];
+  let total = SEED_DATA.reduce((a, c) => a + c.sessions.length, 0) + SEED_DATA.length;
+  let done = 0;
+
+  // Write clients
+  for (const c of SEED_DATA) {
+    const clientRef = doc(collection(db, 'clients'));
+    ops.push({ ref: clientRef, data: {
+      name: c.name,
+      goals: c.goals || '',
+      isGroup: c.isGroup || false,
+      isArchived: false,
+      defaultFocus: '',
+      createdAt: new Date().toISOString(),
+    }});
+    // Write sessions for this client
+    for (const s of c.sessions) {
+      const sRef = doc(collection(db, 'sessions'));
+      ops.push({ ref: sRef, data: {
+        clientName: c.name,
+        week: s.week || null,
+        date: s.date || '',
+        focus: s.focus || '',
+        exercise: s.exercise || '',
+        sets: s.sets || '',
+        reps: s.reps || '',
+        weight: s.weight || '',
+        pr: s.pr || false,
+        sessionNotes: s.sessionNotes || '',
+        exNotes: s.exNotes || '',
+        seeded: true,
+        createdAt: new Date().toISOString(),
+      }});
+    }
+    done++;
+    setLoading(35 + Math.round((done / total) * 45), `Seeding ${c.name}…`);
+  }
+
+  // Commit in batches of 400
+  for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db);
+    ops.slice(i, i + BATCH_SIZE).forEach(op => batch.set(op.ref, op.data));
+    await batch.commit();
+  }
+}
+
+// ── LOAD CLIENTS ──
+async function loadClients() {
+  const snap = await getDocs(collection(db, 'clients'));
+  const sessSnap = await getDocs(collection(db, 'sessions'));
+
+  // Count sessions per client
+  const counts = {}, lastDates = {};
+  sessSnap.docs.forEach(d => {
+    const s = d.data();
+    const n = s.clientName;
+    counts[n] = (counts[n] || 0) + 1;
+    if (s.date && (!lastDates[n] || s.date > lastDates[n])) lastDates[n] = s.date;
+  });
+
+  allClients = snap.docs.map(d => ({
+    id: d.id, ...d.data(),
+    sessionCount: counts[d.data().name] || 0,
+    lastDate: lastDates[d.data().name] || '',
+  }));
+  allClients.sort((a, b) => a.name.localeCompare(b.name));
+  renderClientGrid();
+}
+
+// ── RENDER CLIENT GRID ──
+function renderClientGrid() {
+  const clientGrid = document.getElementById('client-grid');
+  const groupGrid = document.getElementById('group-grid');
+  clientGrid.innerHTML = '';
+  groupGrid.innerHTML = '';
+
+  const archivedCount = allClients.filter(c => !c.isGroup && c.isArchived).length;
+  document.getElementById('archived-count-label').textContent = archivedCount > 0 ? `${archivedCount} archived` : '';
+
+  allClients.forEach(client => {
+    if (client.isGroup) return; // handle groups separately
+    if (client.isArchived && !showArchived) return;
+    const card = buildClientCard(client);
+    clientGrid.appendChild(card);
+  });
+  allClients.forEach(client => {
+    if (!client.isGroup) return;
+    const card = buildClientCard(client);
+    groupGrid.appendChild(card);
+  });
+}
+
+function buildClientCard(client) {
+  const card = document.createElement('div');
+  card.className = 'client-card' + (client.isGroup ? ' group-card' : '') + (client.isArchived ? ' archived' : '');
+  const initials = client.name.split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+  const lastStr = client.lastDate ? fmtDateShort(client.lastDate) : 'No sessions';
+  card.innerHTML = `
+    <div class="client-avatar">${initials}</div>
+    <h3>${client.name}</h3>
+    <div class="client-meta">Last: ${lastStr}</div>
+    <div class="client-count-badge">${client.sessionCount} sessions</div>
+    ${client.isArchived ? '<div style="font-size:10px;color:var(--muted);margin-top:4px;">ARCHIVED</div>' : ''}`;
+  card.onclick = () => openClient(client);
+  return card;
+}
+
+function toggleShowArchived() {
+  showArchived = !showArchived;
+  document.getElementById('archived-toggle-btn').textContent = showArchived ? '👁 Hide Archived' : '👁 Show Archived';
+  renderClientGrid();
+}
+
+// ── OPEN CLIENT ──
+async function openClient(client) {
+  currentClient = client;
+  document.getElementById('client-select').classList.remove('visible');
+  document.getElementById('app').className = 'visible';
+  document.getElementById('header-client-name').textContent = client.name;
+  document.getElementById('header-date').textContent = displayNow();
+
+  // Load sessions from Firebase
+  clientSessions = await loadClientSessions(client.name);
+  updateHeaderPill();
+  showTab('overview');
+  initLogForm();
+}
+
+async function loadClientSessions(clientName) {
+  const snap = await getDocs(query(collection(db, 'sessions'), where('clientName', '==', clientName)));
+  const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  sessions.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  return sessions;
+}
+
+function updateHeaderPill() {
+  const weeks = clientSessions.map(s => s.week).filter(w => w !== null && w !== undefined).map(Number).filter(n => !isNaN(n));
+  const maxWeek = weeks.length ? Math.max(...weeks) : 0;
+  document.getElementById('header-pill').textContent = maxWeek ? `Week ${maxWeek}` : 'No sessions';
+}
+
+function goBack() {
+  document.getElementById('app').className = '';
+  document.getElementById('client-select').classList.add('visible');
+  currentClient = null;
+  clientSessions = [];
+  if (progressChart) { progressChart.destroy(); progressChart = null; }
+  if (weeklyChart) { weeklyChart.destroy(); weeklyChart = null; }
+  // Refresh counts
+  loadClients();
+}
+
+// ── TABS ──
+function showTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+  if (name === 'overview') renderOverview();
+  if (name === 'history') { resetHistFilters(); renderHistory(); }
+  if (name === 'progress') renderProgress();
+  if (name === 'prs') renderPRs();
+}
+
+// ── OVERVIEW ──
+function getFocusClass(focus) {
+  if (!focus) return 'focus-Other';
+  const f = focus.toLowerCase();
+  if (f.includes('arm') || f.includes('chest') || f.includes('back') || f.includes('shoulder') || f.includes('bicep') || f.includes('tricep')) return 'focus-Arms';
+  if (f.includes('leg') || f.includes('glute') || f.includes('squat') || f.includes('core') || f.includes('cardio')) return 'focus-Legs';
+  if (f.includes('full')) return 'focus-Full';
+  return 'focus-Other';
+}
+
+function renderOverview() {
+  if (!currentClient) return;
+  const s = clientSessions;
+  const dates = [...new Set(s.map(x => x.date).filter(Boolean))].sort();
+  const exercises = [...new Set(s.map(x => x.exercise))];
+  const prs = s.filter(x => x.pr).length;
+  const weeks = [...new Set(s.map(x => x.week).filter(x => x !== null && x !== undefined))];
+
+  let html = '';
+  if (currentClient.goals) {
+    html += `<div class="goals-banner">
+      <div class="goals-label">📌 Notes & Goals</div>
+      <div class="goals-text">${currentClient.goals}</div>
+      <button class="edit-goals-btn" onclick="openEditGoals()">✏️ Edit</button>
+    </div>`;
+  } else {
+    html += `<div class="goals-banner" style="border-style:dashed;cursor:pointer;" onclick="openEditGoals()">
+      <div class="goals-label">📌 Notes & Goals</div>
+      <div class="goals-text" style="color:var(--muted);">No notes yet — click to add goals and client notes.</div>
+    </div>`;
+  }
+
+  html += `<div class="stats-grid">
+    <div class="stat-card"><div class="stat-val">${weeks.length}</div><div class="stat-label">Weeks</div></div>
+    <div class="stat-card"><div class="stat-val">${dates.length}</div><div class="stat-label">Dates</div></div>
+    <div class="stat-card"><div class="stat-val">${exercises.length}</div><div class="stat-label">Exercises</div></div>
+    <div class="stat-card"><div class="stat-val">${prs}</div><div class="stat-label">🏆 PRs</div></div>
+  </div>`;
+
+  html += `<div class="card"><div class="card-title">📅 Recent Sessions</div>`;
+  const recentDates = dates.slice(-5).reverse();
+  if (!recentDates.length) {
+    html += `<div style="color:var(--muted);font-size:13px;">No sessions logged yet.</div>`;
+  } else {
+    recentDates.forEach(date => {
+      const rows = s.filter(x => x.date === date);
+      const focus = rows[0]?.focus || '';
+      const exList = [...new Set(rows.map(r => r.exercise))].join(' · ');
+      const note = rows.find(r => r.sessionNotes)?.sessionNotes || '';
+      html += `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${fmtDate(date)}</span>
+          <span class="focus-pill ${getFocusClass(focus)}">${focus}</span>
+          ${rows.some(r => r.pr) ? '<span class="pr-tag">🏆 PR</span>' : ''}
+        </div>
+        <div style="font-size:12px;color:var(--text);">${exList}</div>
+        ${note ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;">📝 ${note}</div>` : ''}
+      </div>`;
+    });
+  }
+  html += `</div>`;
+
+  // Danger zone
+  html += `<div class="danger-zone">
+    <div class="danger-zone-title">⚠️ Manage Client</div>
+    <button class="danger-btn ${currentClient.isArchived ? 'btn-archive unarchive' : 'btn-archive'}" onclick="archiveClient()">
+      ${currentClient.isArchived ? '↩ Unarchive' : '📦 Archive'}
+    </button>
+    <button class="danger-btn btn-delete" onclick="deleteClient()">🗑 Delete Client</button>
+  </div>`;
+
+  document.getElementById('tab-overview').innerHTML = html;
+}
+
+// ── EDIT GOALS ──
+function openEditGoals() {
+  document.getElementById('edit-goals-text').value = currentClient.goals || '';
+  document.getElementById('edit-goals-modal').classList.add('open');
+}
+async function saveGoals() {
+  const newGoals = document.getElementById('edit-goals-text').value.trim();
+  await updateDoc(doc(db, 'clients', currentClient.id), { goals: newGoals });
+  currentClient.goals = newGoals;
+  const c = allClients.find(x => x.id === currentClient.id);
+  if (c) c.goals = newGoals;
+  closeModal();
+  renderOverview();
+  showToast('✅ Goals updated!');
+}
+
+// ── ARCHIVE / DELETE ──
+async function archiveClient() {
+  const newVal = !currentClient.isArchived;
+  await updateDoc(doc(db, 'clients', currentClient.id), { isArchived: newVal });
+  currentClient.isArchived = newVal;
+  const c = allClients.find(x => x.id === currentClient.id);
+  if (c) c.isArchived = newVal;
+  showToast(newVal ? '📦 Client archived' : '↩ Client unarchived');
+  renderOverview();
+}
+
+async function deleteClient() {
+  if (!confirm(`Permanently delete ${currentClient.name} and ALL their sessions? This cannot be undone.`)) return;
+  // Delete all sessions
+  const snap = await getDocs(query(collection(db, 'sessions'), where('clientName', '==', currentClient.name)));
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  batch.delete(doc(db, 'clients', currentClient.id));
+  await batch.commit();
+  showToast('🗑 Client deleted');
+  goBack();
+}
+
+// ── LOG SESSION ──
+function initLogForm() {
+  document.getElementById('log-date').value = todayStr();
+  const weeks = clientSessions.map(s => s.week).filter(w => w !== null && w !== undefined).map(Number).filter(n => !isNaN(n));
+  const maxWeek = weeks.length ? Math.max(...weeks) : 0;
+  document.getElementById('log-week').value = maxWeek + 1;
+  if (currentClient.defaultFocus) document.getElementById('log-focus').value = currentClient.defaultFocus;
+  document.getElementById('exercise-rows').innerHTML = '';
+  exRowCount = 0;
+  addExRow();
+}
+
+function addExRow() {
+  exRowCount++;
+  const id = exRowCount;
+  const div = document.createElement('div');
+  div.className = 'ex-input-row';
+  div.id = `exrow-${id}`;
+  div.innerHTML = `
+    <input type="text" class="ex-name-cell" id="ex-name-${id}" placeholder="Exercise name" />
+    <input type="text" id="ex-sets-${id}" placeholder="Sets" />
+    <input type="text" id="ex-reps-${id}" placeholder="Reps" />
+    <input type="text" id="ex-wt-${id}" placeholder="Weight" />
+    <button class="remove-row-btn" onclick="removeExRow(${id})">✕</button>`;
+  document.getElementById('exercise-rows').appendChild(div);
+}
+
+function removeExRow(id) { document.getElementById(`exrow-${id}`)?.remove(); }
+
+async function saveSession() {
+  if (!currentClient) return;
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const date = document.getElementById('log-date').value;
+  const week = parseInt(document.getElementById('log-week').value) || null;
+  const focus = document.getElementById('log-focus').value;
+  const sessionNotes = document.getElementById('log-session-notes').value.trim();
+  const exNotes = document.getElementById('log-ex-notes').value.trim();
+  const isPR = document.getElementById('log-pr').value === 'true';
+
+  const rows = [...document.getElementById('exercise-rows').children];
+  const toSave = [];
+  rows.forEach(rowEl => {
+    const id = rowEl.id.replace('exrow-', '');
+    const name = document.getElementById(`ex-name-${id}`)?.value.trim();
+    if (!name) return;
+    toSave.push({
+      clientName: currentClient.name, week, date, focus,
+      exercise: name,
+      sets: document.getElementById(`ex-sets-${id}`)?.value.trim() || '',
+      reps: document.getElementById(`ex-reps-${id}`)?.value.trim() || '',
+      weight: document.getElementById(`ex-wt-${id}`)?.value.trim() || '',
+      pr: isPR, sessionNotes, exNotes,
+      createdAt: new Date().toISOString(),
+    });
+  });
+
+  if (!toSave.length) { btn.disabled = false; btn.textContent = ''; btn.innerHTML = '💾 SAVE SESSION'; return showToast('Add at least one exercise'); }
+
+  try {
+    const batch = writeBatch(db);
+    toSave.forEach(s => batch.set(doc(collection(db, 'sessions')), s));
+    await batch.commit();
+
+    // Reload sessions
+    clientSessions = await loadClientSessions(currentClient.name);
+    updateHeaderPill();
+
+    // Update count on allClients
+    const c = allClients.find(x => x.name === currentClient.name);
+    if (c) { c.sessionCount = clientSessions.length; c.lastDate = date; }
+
+    // Reset form
+    initLogForm();
+    document.getElementById('log-session-notes').value = '';
+    document.getElementById('log-ex-notes').value = '';
+    document.getElementById('log-pr').value = 'false';
+
+    btn.disabled = false; btn.innerHTML = '💾 SAVE SESSION';
+    showToast('✅ Session saved!');
+    // Reset history filters
+    document.getElementById('hist-week-filter').innerHTML = '<option value="">All Weeks</option>';
+    document.getElementById('hist-focus-filter').innerHTML = '<option value="">All Focus Areas</option>';
+    showTab('history');
+  } catch(e) {
+    btn.disabled = false; btn.innerHTML = '💾 SAVE SESSION';
+    showToast('⚠️ Error: ' + e.message);
+  }
+}
+
+// ── HISTORY ──
+function resetHistFilters() {
+  const wf = document.getElementById('hist-week-filter');
+  const ff = document.getElementById('hist-focus-filter');
+  wf.innerHTML = '<option value="">All Weeks</option>';
+  ff.innerHTML = '<option value="">All Focus Areas</option>';
+  const weeks = [...new Set(clientSessions.map(s => s.week).filter(w => w !== null && w !== undefined))].sort((a, b) => Number(a) - Number(b));
+  weeks.forEach(w => { const o = document.createElement('option'); o.value = w; o.textContent = `Week ${w}`; wf.appendChild(o); });
+  const focuses = [...new Set(clientSessions.map(s => s.focus).filter(Boolean))].sort();
+  focuses.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; ff.appendChild(o); });
+}
+
+function renderHistory() {
+  if (!currentClient) return;
+  document.getElementById('history-sub').textContent = `${currentClient.name} · ${clientSessions.length} total entries`;
+  const wf = document.getElementById('hist-week-filter').value;
+  const ff = document.getElementById('hist-focus-filter').value;
+
+  let filtered = clientSessions;
+  if (wf) filtered = filtered.filter(s => String(s.week) === String(wf));
+  if (ff) filtered = filtered.filter(s => s.focus === ff);
+
+  const byDate = {};
+  filtered.forEach(row => {
+    const key = row.date || '__unknown__';
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(row);
+  });
+  const sortedDates = Object.keys(byDate).sort().reverse();
+  const list = document.getElementById('history-list');
+
+  if (!sortedDates.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><h3>No Sessions</h3><p>Nothing matches your filter.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = sortedDates.map((date, idx) => {
+    const rows = byDate[date];
+    const focus = rows[0]?.focus || '';
+    const week = rows[0]?.week;
+    const exNames = [...new Set(rows.map(r => r.exercise))].join(' · ');
+    const note = rows.find(r => r.sessionNotes)?.sessionNotes || '';
+    const hasPR = rows.some(r => r.pr);
+    const exRows = [...new Set(rows.map(r => r.exercise))].map(exName => {
+      const e = rows.find(r => r.exercise === exName);
+      const exNote = rows.find(r => r.exercise === exName && r.exNotes)?.exNotes || '';
+      return `<div class="ex-detail-row">
+        <div class="ex-detail-name">${exName} ${e?.pr ? '<span class="pr-tag">🏆 PR</span>' : ''}</div>
+        <div class="ex-detail-val">${e?.sets || '—'}</div>
+        <div class="ex-detail-val">${e?.reps || '—'}</div>
+        <div class="ex-detail-val">${e?.weight || '—'}</div>
+        ${exNote ? `<div style="grid-column:1/-1;" class="note-line">📝 ${exNote}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `<div class="history-entry">
+      <div class="history-entry-header" onclick="toggleDetail(${idx})">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+            <span class="history-date">${date !== '__unknown__' ? fmtDate(date) : 'Unknown Date'}</span>
+            ${week !== null && week !== undefined ? `<span class="week-badge">Wk ${week}</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+            <span class="focus-pill ${getFocusClass(focus)}">${focus}</span>
+            ${hasPR ? '<span class="pr-tag">🏆 PR</span>' : ''}
+          </div>
+          <div class="history-exlist">${exNames}</div>
+        </div>
+        <div class="history-right">
+          <div class="history-badge">${rows.length} ex</div>
+          <div class="history-chevron" id="chev-${idx}">▾</div>
+        </div>
+      </div>
+      <div class="history-detail" id="hd-${idx}">
+        <div class="ex-detail-row" style="margin-bottom:5px;">
+          <div class="ex-detail-header">Exercise</div>
+          <div class="ex-detail-header" style="text-align:center">Sets</div>
+          <div class="ex-detail-header" style="text-align:center">Reps</div>
+          <div class="ex-detail-header" style="text-align:center">Weight</div>
+        </div>
+        ${exRows}
+        ${note ? `<div class="note-line" style="margin-top:6px;">📋 ${note}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDetail(idx) {
+  const d = document.getElementById(`hd-${idx}`);
+  const c = document.getElementById(`chev-${idx}`);
+  if (!d) return;
+  const open = d.classList.toggle('open');
+  if (c) c.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function clearHistFilters() {
+  document.getElementById('hist-week-filter').value = '';
+  document.getElementById('hist-focus-filter').value = '';
+  renderHistory();
+}
+
+// ── PROGRESS ──
+function renderProgress() {
+  const exercises = [...new Set(clientSessions.filter(s => s.weight && !isNaN(parseFloat(s.weight))).map(s => s.exercise))].sort();
+  const sel = document.getElementById('prog-exercise-select');
+  sel.innerHTML = exercises.map(e => `<option value="${e}">${e}</option>`).join('');
+  renderProgressChart();
+  renderWeeklyChart();
+}
+
+function renderProgressChart() {
+  const exName = document.getElementById('prog-exercise-select').value;
+  if (!exName) return;
+  const pts = clientSessions
+    .filter(s => s.exercise === exName && s.date && s.weight && !isNaN(parseFloat(s.weight)))
+    .map(s => ({ date: s.date, weight: parseFloat(s.weight) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const ctx = document.getElementById('progressChart').getContext('2d');
+  if (progressChart) progressChart.destroy();
+  progressChart = new Chart(ctx, {
+    type: 'line', data: {
+      labels: pts.map(p => fmtDateShort(p.date)),
+      datasets: [{ label: 'Weight', data: pts.map(p => p.weight), borderColor: '#e8ff47', backgroundColor: 'rgba(232,255,71,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6b7592', font: { size: 10 } }, grid: { color: '#2a3045' } }, y: { ticks: { color: '#6b7592', font: { size: 11 } }, grid: { color: '#2a3045' } } } }
+  });
+}
+
+function renderWeeklyChart() {
+  const byWeek = {};
+  clientSessions.forEach(s => {
+    if (s.week) { const k = 'Wk ' + s.week; byWeek[k] = (byWeek[k] || new Set()).add(s.date || s.exercise); }
+  });
+  const sorted = Object.entries(byWeek).sort((a, b) => parseInt(a[0].replace('Wk ', '')) - parseInt(b[0].replace('Wk ', '')));
+  const ctx = document.getElementById('weeklyChart').getContext('2d');
+  if (weeklyChart) weeklyChart.destroy();
+  weeklyChart = new Chart(ctx, {
+    type: 'bar', data: {
+      labels: sorted.map(([k]) => k),
+      datasets: [{ label: 'Unique days', data: sorted.map(([, v]) => v.size), backgroundColor: 'rgba(71,200,255,0.65)', borderRadius: 5 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6b7592', font: { size: 10 } }, grid: { color: '#2a3045' } }, y: { ticks: { color: '#6b7592', font: { size: 11 }, stepSize: 1 }, grid: { color: '#2a3045' }, title: { display: true, text: 'days', color: '#6b7592' } } } }
+  });
+}
+
+// ── PRs ──
+function renderPRs() {
+  const search = (document.getElementById('pr-search')?.value || '').toLowerCase();
+  const prs = {};
+  clientSessions.forEach(s => {
+    const w = parseFloat(s.weight);
+    if (!isNaN(w) && w > 0 && (!prs[s.exercise] || w > prs[s.exercise].weight)) prs[s.exercise] = { weight: w, date: s.date };
+  });
+  let entries = Object.entries(prs);
+  if (search) entries = entries.filter(([n]) => n.toLowerCase().includes(search));
+  entries.sort((a, b) => b[1].weight - a[1].weight);
+  const list = document.getElementById('pr-list');
+  if (!entries.length) { list.innerHTML = `<div class="empty-state"><div class="icon">🏆</div><h3>No Records</h3><p>No numeric weights logged yet.</p></div>`; return; }
+  list.innerHTML = entries.map(([name, data]) => `
+    <div class="pr-list-item">
+      <div><div class="pr-name">${name}</div><div class="pr-date">${fmtDate(data.date)}</div></div>
+      <div style="text-align:right;"><div class="pr-weight">${data.weight}</div><div style="font-size:10px;color:var(--muted);">lbs</div></div>
+    </div>`).join('');
+}
+
+// ── NEW CLIENT MODAL ──
+function openNewClientModal(isGroup) {
+  isNewGroup = isGroup;
+  document.getElementById('modal-title').innerHTML = isGroup ? 'NEW <span>GROUP</span>' : 'NEW <span>CLIENT</span>';
+  document.getElementById('modal-title').className = 'modal-title' + (isGroup ? ' group' : '');
+  document.getElementById('modal-save-btn').className = 'btn-modal-save' + (isGroup ? ' group' : '');
+  document.getElementById('modal-save-btn').textContent = isGroup ? 'CREATE GROUP' : 'CREATE CLIENT';
+  document.getElementById('new-client-name').value = '';
+  document.getElementById('new-client-goals').value = '';
+  document.getElementById('new-client-focus').value = '';
+  document.getElementById('new-client-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-client-name').focus(), 100);
+}
+
+function closeModal() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+}
+
+async function saveNewClient() {
+  const name = document.getElementById('new-client-name').value.trim();
+  if (!name) return showToast('Please enter a name');
+  const goals = document.getElementById('new-client-goals').value.trim();
+  const defaultFocus = document.getElementById('new-client-focus').value;
+  const btn = document.getElementById('modal-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await addDoc(collection(db, 'clients'), {
+      name, goals, defaultFocus, isGroup: isNewGroup,
+      isArchived: false, createdAt: new Date().toISOString(),
+    });
+    closeModal();
+    await loadClients();
+    showToast(`✅ ${isNewGroup ? 'Group' : 'Client'} "${name}" created!`);
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = isNewGroup ? 'CREATE GROUP' : 'CREATE CLIENT';
+  }
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── KICK OFF ──
+init();
+</script>
+</body>
+</html>
