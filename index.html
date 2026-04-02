@@ -291,6 +291,28 @@
       header { padding: 10px 14px; gap: 10px; }
       .tab-panel { padding: 14px; }
     }
+    /* ── FOOTER ── */
+    .mp-footer {
+      width: 100%; text-align: center; padding: 28px 24px 32px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      margin-top: auto;
+      position: relative; z-index: 1;
+    }
+    .mp-footer-inner { display: inline-flex; align-items: center; gap: 10px; }
+    .mp-monogram {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--accent); color: #0d0f14;
+      font-family: var(--font-head); font-size: 14px; letter-spacing: 1px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .mp-footer-text { font-size: 11px; color: var(--muted); letter-spacing: 1px; line-height: 1.6; text-align: left; }
+    .mp-footer-text strong { color: var(--text); font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; font-size: 11px; }
+    .mp-footer-text a { color: var(--accent2); text-decoration: none; font-size: 10px; }
+    .mp-footer-text a:hover { text-decoration: underline; }
+    .mp-divider { width: 1px; height: 28px; background: var(--border); }
+    .mp-tagline { font-size: 10px; color: var(--muted); letter-spacing: 1px; font-style: italic; }
   </style>
 </head>
 <body>
@@ -328,6 +350,18 @@
     <button class="btn-add-client btn-add-group" onclick="openNewClientModal(true)">＋ Add Group</button>
   </div>
   <div class="client-grid" id="group-grid"></div>
+
+<footer class="mp-footer">
+  <div class="mp-footer-inner">
+    <div class="mp-monogram">MP</div>
+    <div class="mp-footer-text">
+      <strong>Meagan Pratt</strong><br>
+      Designed &amp; built custom · <a href="mailto:meagan.pratt18@gmail.com">meagan.pratt18@gmail.com</a>
+    </div>
+    <div class="mp-divider"></div>
+    <div class="mp-tagline">Custom tools built<br>for people who do the work.</div>
+  </div>
+</footer>
 </div>
 
 <!-- APP -->
@@ -421,12 +455,12 @@
 
   <div id="tab-progress" class="tab-panel">
     <div class="section-head">PROGRESS</div>
-    <div class="section-sub">Weight over time per exercise</div>
+    <div class="section-sub">Weight over time per exercise · click any card to expand</div>
+    <div id="sparkline-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;margin-bottom:16px;"></div>
     <div class="card">
       <div class="card-title">📅 Sessions per Week</div>
       <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
     </div>
-    <div id="sparkline-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:4px;"></div>
   </div>
 
   <div id="tab-prs" class="tab-panel">
@@ -480,6 +514,18 @@
     <div id="manage-content"></div>
   </div>
 
+
+<footer class="mp-footer">
+  <div class="mp-footer-inner">
+    <div class="mp-monogram">MP</div>
+    <div class="mp-footer-text">
+      <strong>Meagan Pratt</strong><br>
+      Designed &amp; built custom · <a href="mailto:meagan.pratt18@gmail.com">meagan.pratt18@gmail.com</a>
+    </div>
+    <div class="mp-divider"></div>
+    <div class="mp-tagline">Custom tools built<br>for people who do the work.</div>
+  </div>
+</footer>
 <div id="toast"></div>
 
 <script type="module">
@@ -1265,8 +1311,8 @@ function clearHistFilters() {
 const sparklineCharts = {}; // canvas id -> Chart instance
 
 function renderProgress() {
-  renderWeeklyChart();
-  renderSparklineGrid();
+  renderSparklineGrid();   // sparklines first (above)
+  renderWeeklyChart();     // sessions per week below
 }
 
 function renderSparklineGrid() {
@@ -1401,7 +1447,7 @@ function renderManage() {
   const dates = [...new Set(clientSessions.map(s => s.date).filter(Boolean))];
   const lastDate = dates.sort().pop() || '';
 
-  let html = `
+  let content = `
     <div class="card">
       <div class="card-title">👤 Client Info</div>
       <div class="form-group">
@@ -1457,7 +1503,7 @@ function renderManage() {
       ${c.isArchived ? '<div style="font-size:11px;color:var(--muted);margin-top:10px;">This client is currently archived and hidden from the main list.</div>' : ''}
     </div>`;
 
-  document.getElementById('manage-content').innerHTML = html;
+  document.getElementById('manage-content').innerHTML = content;
 }
 
 window.savePronouns = async function() {
