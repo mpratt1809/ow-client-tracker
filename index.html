@@ -71,6 +71,7 @@
     .client-card.group-card .client-avatar { background: rgba(71,200,255,0.1); color: var(--accent2); border-color: rgba(71,200,255,0.25); }
     .client-card h3 { font-family: var(--font-head); font-size: 16px; letter-spacing: 1.5px; margin-bottom: 3px; line-height: 1.2; }
     .client-meta { font-size: 10px; color: var(--muted); }
+    .client-pronouns { font-size: 10px; color: var(--accent2); font-style: italic; margin-bottom: 2px; letter-spacing: 0.5px; }
     .client-count-badge { display: inline-block; margin-top: 6px; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 100px; background: rgba(232,255,71,0.1); color: var(--accent); }
     .client-card.group-card .client-count-badge { background: rgba(71,200,255,0.1); color: var(--accent2); }
     .show-archived-row { width: 100%; max-width: 940px; display: flex; align-items: center; gap: 10px; margin-top: -20px; margin-bottom: 20px; }
@@ -239,9 +240,52 @@
     #toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface); border: 1px solid var(--accent); color: var(--text); padding: 10px 22px; border-radius: 100px; font-size: 13px; font-weight: 600; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; box-shadow: var(--glow); pointer-events: none; }
     #toast.show { transform: translateX(-50%) translateY(0); }
 
+    /* ── EFFORT TOGGLE ── */
+    .effort-toggle-btn { padding: 5px 13px; border-radius: 100px; border: 1.5px solid var(--border); background: none; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; font-family: var(--font-body); }
+    .effort-toggle-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.1); }
+    /* ── UPDATED EX ROW WITH EFFORT ── */
+    .ex-row-headers { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 30px !important; }
+    .ex-input-row { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 30px !important; }
+    /* ── SPARKLINE CARDS ── */
+    .sparkline-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.2s; }
+    .sparkline-card:hover { border-color: var(--accent2); }
+    .sparkline-card.expanded { border-color: var(--accent); }
+    .sparkline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; }
+    .sparkline-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .sparkline-wrap { position: relative; height: 80px; }
+    .sparkline-wrap.expanded-chart { height: 180px; }
+    .sparkline-pr { font-family: var(--font-head); font-size: 20px; color: var(--accent); letter-spacing: 1px; }
+    .sparkline-trend { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 100px; }
+    .trend-up   { background: rgba(46,213,115,0.12); color: var(--success); }
+    .trend-flat { background: rgba(71,200,255,0.12); color: var(--accent2); }
+    .trend-down { background: rgba(255,71,87,0.1);  color: var(--danger); }
+
+    /* ── SUGGESTION BADGE ── */
+    .suggestion-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; margin-top: 4px; }
+    .sug-progress { background: rgba(46,213,115,0.12); color: var(--success); border: 1px solid rgba(46,213,115,0.3); }
+    .sug-hold    { background: rgba(71,200,255,0.12); color: var(--accent2); border: 1px solid rgba(71,200,255,0.3); }
+    .sug-deload  { background: rgba(255,71,87,0.1);  color: var(--danger);  border: 1px solid rgba(255,71,87,0.25); }
+    .sug-new     { background: rgba(232,255,71,0.08); color: var(--muted);  border: 1px solid var(--border); }
+    /* ── LAST 3 VISITS ── */
+    .visit-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+    .visit-card-header { padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .visit-card-header:hover { background: rgba(255,255,255,0.02); }
+    .visit-date-label { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+    .visit-focus-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+    .visit-body { display: none; border-top: 1px solid var(--border); padding: 10px 14px; }
+    .visit-body.open { display: block; }
+    .visit-ex-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; align-items: center; }
+    .visit-ex-row:last-child { border-bottom: none; }
+    .visit-ex-name { font-weight: 600; }
+    .visit-ex-val { font-family: var(--font-mono); color: var(--muted); text-align: center; }
+    .rpe-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; font-family: var(--font-mono); }
+    .rpe-easy   { background: rgba(46,213,115,0.15); color: var(--success); }
+    .rpe-medium { background: rgba(232,255,71,0.15); color: var(--accent); }
+    .rpe-hard   { background: rgba(255,71,87,0.15);  color: var(--danger); }
+
     @media (max-width: 600px) {
       .client-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
-      .ex-input-row, .ex-row-headers { grid-template-columns: 1fr 1fr; }
+      .ex-input-row, .ex-row-headers { grid-template-columns: 1fr 1fr !important; }
       .ex-input-row .ex-name-cell { grid-column: 1 / -1; }
       .ex-row-headers span:not(:first-child):not(:last-child) { display: none; }
       header { padding: 10px 14px; gap: 10px; }
@@ -305,6 +349,7 @@
     <button class="tab-btn" data-tab="history" onclick="showTab('history')">📅 History</button>
     <button class="tab-btn" data-tab="progress" onclick="showTab('progress')">📈 Progress</button>
     <button class="tab-btn" data-tab="prs" onclick="showTab('prs')">🏆 PRs</button>
+    <button class="tab-btn" data-tab="manage" onclick="showTab('manage')">⚙️ Manage</button>
   </nav>
 
   <div id="tab-overview" class="tab-panel active"></div>
@@ -326,11 +371,20 @@
           </select>
         </div>
       </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label>Effort Scale</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="effort-toggle-btn active" id="effort-rpe-btn" onclick="setEffortScale('rpe')">RPE (1–10)</button>
+          <button class="effort-toggle-btn" id="effort-pct-btn" onclick="setEffortScale('pct')">% of Max</button>
+          <span style="font-size:11px;color:var(--muted);">Applied to all exercises this session</span>
+        </div>
+      </div>
       <div class="form-group">
         <label>Exercises</label>
-        <div class="ex-row-headers">
+        <div class="ex-row-headers" id="ex-row-headers">
           <span>Exercise Name</span><span style="text-align:center">Sets</span>
-          <span style="text-align:center">Reps</span><span style="text-align:center">Weight</span><span></span>
+          <span style="text-align:center">Reps</span><span style="text-align:center">Weight</span>
+          <span style="text-align:center" id="effort-col-header">RPE</span><span></span>
         </div>
         <div id="exercise-rows"></div>
         <button class="btn-add-row" onclick="addExRow()">＋ Add Exercise</button>
@@ -359,6 +413,7 @@
     <div class="filter-row">
       <select id="hist-week-filter" onchange="renderHistory()"><option value="">All Weeks</option></select>
       <select id="hist-focus-filter" onchange="renderHistory()"><option value="">All Focus Areas</option></select>
+      <select id="hist-exercise-filter" onchange="renderHistory()"><option value="">All Exercises</option></select>
       <button class="chart-pill" onclick="clearHistFilters()">✕ Clear</button>
     </div>
     <div id="history-list"></div>
@@ -366,18 +421,12 @@
 
   <div id="tab-progress" class="tab-panel">
     <div class="section-head">PROGRESS</div>
-    <div class="section-sub">Weight progression & session volume</div>
-    <div class="card">
-      <div class="card-title">📈 Weight Over Time</div>
-      <div class="chart-controls">
-        <select id="prog-exercise-select" onchange="renderProgressChart()" style="flex:1;min-width:150px;font-size:12px;"></select>
-      </div>
-      <div class="chart-wrap"><canvas id="progressChart"></canvas></div>
-    </div>
+    <div class="section-sub">Weight over time per exercise</div>
     <div class="card">
       <div class="card-title">📅 Sessions per Week</div>
       <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
     </div>
+    <div id="sparkline-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:4px;"></div>
   </div>
 
   <div id="tab-prs" class="tab-panel">
@@ -395,6 +444,8 @@
   <div class="modal">
     <div class="modal-title" id="modal-title">NEW <span>CLIENT</span></div>
     <div class="form-group"><label>Full Name</label><input type="text" id="new-client-name" placeholder="e.g. Jane Smith" /></div>
+    <div class="form-group"><label>Pronouns <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:10px;">(optional)</span></label>
+      <input type="text" id="new-client-pronouns" placeholder="e.g. she/her, they/them, he/him" /></div>
     <div class="form-group"><label>Notes & Goals</label><textarea id="new-client-goals" placeholder="Injuries, limitations, training goals…"></textarea></div>
     <div class="form-group">
       <label>Default Focus Template</label>
@@ -423,6 +474,12 @@
   </div>
 </div>
 
+  <div id="tab-manage" class="tab-panel">
+    <div class="section-head">MANAGE CLIENT</div>
+    <div class="section-sub" id="manage-sub"></div>
+    <div id="manage-content"></div>
+  </div>
+
 <div id="toast"></div>
 
 <script type="module">
@@ -450,10 +507,13 @@ window.saveNewClient = saveNewClient;
 window.saveSession = saveSession;
 window.addExRow = addExRow;
 window.removeExRow = removeExRow;
+  window.setEffortScale = setEffortScale;
 window.renderHistory = renderHistory;
 window.clearHistFilters = clearHistFilters;
 window.renderProgressChart = renderProgressChart;
 window.renderPRs = renderPRs;
+  window.toggleSparkline = toggleSparkline;
+  window.renderManage = renderManage;
 window.toggleDetail = toggleDetail;
 window.toggleShowArchived = toggleShowArchived;
 window.archiveClient = archiveClient;
@@ -470,6 +530,7 @@ let currentClient = null;
 let clientSessions = []; // loaded sessions for current client
 let progressChart = null, weeklyChart = null;
 let exRowCount = 0;
+let effortScale = 'rpe'; // 'rpe' or 'pct'
 let isNewGroup = false;
 let showArchived = false;
 
@@ -496,60 +557,107 @@ function setLoading(pct, msg) {
 }
 
 // ── INIT ──
+function showLoadingError(msg, showRetry = true) {
+  document.getElementById('loading-msg').textContent = '⚠️ ' + msg;
+  document.getElementById('loading-bar').style.background = '#ff4757';
+  const ls = document.getElementById('loading-screen');
+  // Remove old buttons
+  ls.querySelectorAll('button').forEach(b => b.remove());
+  if (showRetry) {
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent = 'Retry';
+    retryBtn.style.cssText = 'margin-top:16px;padding:8px 20px;background:var(--accent);color:#0d0f14;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-right:8px;';
+    retryBtn.onclick = () => { ls.querySelectorAll('button').forEach(b=>b.remove()); init(); };
+    ls.appendChild(retryBtn);
+  }
+}
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms/1000}s on: ${label}`)), ms))
+  ]);
+}
+
 async function init() {
   setLoading(10, 'Connecting to database…');
   document.getElementById('select-date').textContent = displayNow();
   document.getElementById('header-date').textContent = displayNow();
 
   try {
-    setLoading(25, 'Checking for existing data…');
-    const metaRef = doc(db, 'meta', 'seed');
-    const metaSnap = await getDoc(metaRef);
-    const seeded = metaSnap.exists() && metaSnap.data().seeded === true;
+    // Step 1: Check if clients already exist (handles partial seeds from prev attempts)
+    setLoading(20, 'Checking existing data…');
+    const clientsSnap = await withTimeout(getDocs(collection(db, 'clients')), 10000, 'load clients check');
+    const hasClients = !clientsSnap.empty;
 
-    if (!seeded) {
-      setLoading(35, 'First run — seeding client history…');
+    if (!hasClients) {
+      // Brand new database — seed everything
+      setLoading(30, 'First run — seeding clients…');
       await seedData();
-      await setDoc(metaRef, { seeded: true, seededAt: new Date().toISOString() });
-      setLoading(85, 'Seed complete!');
+      setLoading(88, 'Seed complete!');
     } else {
-      setLoading(50, 'Loading clients…');
+      // Clients exist — check if sessions also exist, seed any missing
+      setLoading(40, `Found ${clientsSnap.size} clients. Checking sessions…`);
+      const sessSnap = await withTimeout(getDocs(query(collection(db, 'sessions'), where('seeded','==',true))), 10000, 'sessions check');
+      if (sessSnap.empty) {
+        // Clients exist but no seeded sessions — seed sessions only
+        setLoading(50, 'Seeding session history…');
+        await seedSessionsOnly(clientsSnap);
+        setLoading(88, 'Sessions seeded!');
+      } else {
+        setLoading(60, `Found ${sessSnap.size} sessions. Loading…`);
+      }
     }
 
+    // Step 2: Load full client list with counts
+    setLoading(90, 'Building client list…');
     await loadClients();
     setLoading(100, 'Ready!');
     setTimeout(() => {
       document.getElementById('loading-screen').style.display = 'none';
       document.getElementById('client-select').classList.add('visible');
-    }, 400);
+    }, 300);
+
   } catch(e) {
-    console.error(e);
-    document.getElementById('loading-msg').textContent = '⚠️ Error: ' + e.message;
+    console.error('Init error:', e);
+    // Check if it's a permissions error
+    const msg = e.message || String(e);
+    if (msg.includes('permission') || msg.includes('PERMISSION')) {
+      showLoadingError('Firebase permissions denied. Check Firestore rules are in test mode.');
+    } else if (msg.includes('Timeout')) {
+      showLoadingError(msg + '. Check your internet connection.');
+    } else {
+      showLoadingError(msg);
+    }
   }
 }
 
 // ── SEED ──
 async function seedData() {
-  const BATCH_SIZE = 400;
-  let ops = [];
-  let total = SEED_DATA.reduce((a, c) => a + c.sessions.length, 0) + SEED_DATA.length;
-  let done = 0;
+  const BATCH_SIZE = 499; // Firestore hard limit per batch
+  const now = new Date().toISOString();
 
-  // Write clients
+  // Step 1: seed clients (20 docs — fits in one batch)
+  setLoading(35, 'Seeding clients…');
+  const clientBatch = writeBatch(db);
   for (const c of SEED_DATA) {
-    const clientRef = doc(collection(db, 'clients'));
-    ops.push({ ref: clientRef, data: {
+    clientBatch.set(doc(collection(db, 'clients')), {
       name: c.name,
       goals: c.goals || '',
       isGroup: c.isGroup || false,
       isArchived: false,
       defaultFocus: '',
-      createdAt: new Date().toISOString(),
-    }});
-    // Write sessions for this client
+      createdAt: now,
+    });
+  }
+  await clientBatch.commit();
+  setLoading(45, 'Clients seeded. Writing sessions…');
+
+  // Step 2: collect all session docs
+  const allSessionOps = [];
+  for (const c of SEED_DATA) {
     for (const s of c.sessions) {
-      const sRef = doc(collection(db, 'sessions'));
-      ops.push({ ref: sRef, data: {
+      allSessionOps.push({
         clientName: c.name,
         week: s.week || null,
         date: s.date || '',
@@ -562,17 +670,62 @@ async function seedData() {
         sessionNotes: s.sessionNotes || '',
         exNotes: s.exNotes || '',
         seeded: true,
-        createdAt: new Date().toISOString(),
-      }});
+        createdAt: now,
+      });
     }
-    done++;
-    setLoading(35 + Math.round((done / total) * 45), `Seeding ${c.name}…`);
   }
 
-  // Commit in batches of 400
-  for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+  // Step 3: write sessions in batches of 499
+  const totalBatches = Math.ceil(allSessionOps.length / BATCH_SIZE);
+  for (let i = 0; i < allSessionOps.length; i += BATCH_SIZE) {
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const pct = 45 + Math.round((batchNum / totalBatches) * 38);
+    setLoading(pct, `Writing sessions batch ${batchNum}/${totalBatches}…`);
     const batch = writeBatch(db);
-    ops.slice(i, i + BATCH_SIZE).forEach(op => batch.set(op.ref, op.data));
+    allSessionOps.slice(i, i + BATCH_SIZE).forEach(data => {
+      batch.set(doc(collection(db, 'sessions')), data);
+    });
+    await batch.commit();
+  }
+  setLoading(85, 'All sessions written!');
+}
+
+// ── SEED SESSIONS ONLY (when clients already exist but sessions don't) ──
+async function seedSessionsOnly(clientsSnap) {
+  const BATCH_SIZE = 499;
+  const now = new Date().toISOString();
+  // Build a name->id map from existing client docs
+  const nameMap = {};
+  clientsSnap.docs.forEach(d => { nameMap[d.data().name] = d.id; });
+
+  const allSessionOps = [];
+  for (const c of SEED_DATA) {
+    for (const s of c.sessions) {
+      allSessionOps.push({
+        clientName: c.name,
+        week: s.week || null,
+        date: s.date || '',
+        focus: s.focus || '',
+        exercise: s.exercise || '',
+        sets: s.sets || '',
+        reps: s.reps || '',
+        weight: s.weight || '',
+        pr: s.pr || false,
+        sessionNotes: s.sessionNotes || '',
+        exNotes: s.exNotes || '',
+        effortScale: '', effortVal: '',
+        seeded: true,
+        createdAt: now,
+      });
+    }
+  }
+
+  const totalBatches = Math.ceil(allSessionOps.length / BATCH_SIZE);
+  for (let i = 0; i < allSessionOps.length; i += BATCH_SIZE) {
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    setLoading(50 + Math.round((batchNum / totalBatches) * 35), `Writing sessions batch ${batchNum}/${totalBatches}…`);
+    const batch = writeBatch(db);
+    allSessionOps.slice(i, i + BATCH_SIZE).forEach(data => batch.set(doc(collection(db, 'sessions')), data));
     await batch.commit();
   }
 }
@@ -631,6 +784,7 @@ function buildClientCard(client) {
   card.innerHTML = `
     <div class="client-avatar">${initials}</div>
     <h3>${client.name}</h3>
+    ${client.pronouns ? `<div class="client-pronouns">${client.pronouns}</div>` : ''}
     <div class="client-meta">Last: ${lastStr}</div>
     <div class="client-count-badge">${client.sessionCount} sessions</div>
     ${client.isArchived ? '<div style="font-size:10px;color:var(--muted);margin-top:4px;">ARCHIVED</div>' : ''}`;
@@ -679,6 +833,8 @@ function goBack() {
   clientSessions = [];
   if (progressChart) { progressChart.destroy(); progressChart = null; }
   if (weeklyChart) { weeklyChart.destroy(); weeklyChart = null; }
+  Object.values(sparklineCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
+  Object.keys(sparklineCharts).forEach(k => delete sparklineCharts[k]);
   // Refresh counts
   loadClients();
 }
@@ -691,6 +847,48 @@ function showTab(name) {
   if (name === 'history') { resetHistFilters(); renderHistory(); }
   if (name === 'progress') renderProgress();
   if (name === 'prs') renderPRs();
+  if (name === 'manage') renderManage();
+}
+
+// ── SUGGESTION ENGINE ──
+function getSuggestion(exerciseName) {
+  // Get all sessions for this exercise with numeric weights, sorted oldest→newest
+  const exSessions = clientSessions
+    .filter(s => s.exercise === exerciseName && s.weight && !isNaN(parseFloat(s.weight)))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  if (exSessions.length < 2) {
+    return exSessions.length === 1
+      ? `<span class="suggestion-badge sug-new">🆕 First logged — establish baseline</span>`
+      : null;
+  }
+  const last = exSessions[exSessions.length - 1];
+  const prev = exSessions[exSessions.length - 2];
+  const lastW = parseFloat(last.weight);
+  const prevW = parseFloat(prev.weight);
+  const lastRPE = last.effortScale === 'rpe' && last.effortVal ? parseFloat(last.effortVal) : null;
+  const prevRPE = prev.effortScale === 'rpe' && prev.effortVal ? parseFloat(prev.effortVal) : null;
+
+  // Deload: RPE 9-10 twice in a row, or weight dropped
+  if ((lastRPE >= 9 && prevRPE >= 9) || lastW < prevW) {
+    return `<span class="suggestion-badge sug-deload">🔁 Deload — reduce weight ~10%, focus on form</span>`;
+  }
+  // Hold: RPE 8-9, or weight just increased last session
+  if ((lastRPE >= 8) || (lastW > prevW)) {
+    return `<span class="suggestion-badge sug-hold">✅ Hold — same weight, consolidate before loading</span>`;
+  }
+  // Progress: RPE ≤ 7 or consistent weight with no high RPE
+  if (lastRPE !== null && lastRPE <= 7) {
+    const bump = lastW >= 50 ? 5 : 2.5;
+    return `<span class="suggestion-badge sug-progress">📈 Progress — try ${lastW + bump} lbs next session</span>`;
+  }
+  // No RPE data — check weight trend
+  if (lastW === prevW && exSessions.length >= 3) {
+    const thirdLast = exSessions[exSessions.length - 3];
+    if (parseFloat(thirdLast.weight) === lastW) {
+      return `<span class="suggestion-badge sug-progress">📈 3 sessions at ${lastW} lbs — ready to progress</span>`;
+    }
+  }
+  return `<span class="suggestion-badge sug-hold">✅ Consistent — hold weight, monitor RPE</span>`;
 }
 
 // ── OVERVIEW ──
@@ -708,7 +906,13 @@ function renderOverview() {
   const s = clientSessions;
   const dates = [...new Set(s.map(x => x.date).filter(Boolean))].sort();
   const exercises = [...new Set(s.map(x => x.exercise))];
-  const prs = s.filter(x => x.pr).length;
+  // PRs: count exercises where we have a personal best weight (matches PRs tab logic)
+  const prMap = {};
+  s.forEach(x => {
+    const w = parseFloat(x.weight);
+    if (!isNaN(w) && w > 0 && (!prMap[x.exercise] || w > prMap[x.exercise])) prMap[x.exercise] = w;
+  });
+  const prs = Object.keys(prMap).length;
   const weeks = [...new Set(s.map(x => x.week).filter(x => x !== null && x !== undefined))];
 
   let html = '';
@@ -732,37 +936,62 @@ function renderOverview() {
     <div class="stat-card"><div class="stat-val">${prs}</div><div class="stat-label">🏆 PRs</div></div>
   </div>`;
 
-  html += `<div class="card"><div class="card-title">📅 Recent Sessions</div>`;
-  const recentDates = dates.slice(-5).reverse();
+  // Last 3 visits
+  html += `<div class="card"><div class="card-title">📅 Last 3 Visits</div>`;
+  const recentDates = dates.slice(-3).reverse();
   if (!recentDates.length) {
-    html += `<div style="color:var(--muted);font-size:13px;">No sessions logged yet.</div>`;
+    html += `<div style="color:var(--muted);font-size:13px;">No sessions logged yet.</div></div>`;
   } else {
-    recentDates.forEach(date => {
+    recentDates.forEach((date, vi) => {
       const rows = s.filter(x => x.date === date);
       const focus = rows[0]?.focus || '';
-      const exList = [...new Set(rows.map(r => r.exercise))].join(' · ');
       const note = rows.find(r => r.sessionNotes)?.sessionNotes || '';
-      html += `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${fmtDate(date)}</span>
-          <span class="focus-pill ${getFocusClass(focus)}">${focus}</span>
-          ${rows.some(r => r.pr) ? '<span class="pr-tag">🏆 PR</span>' : ''}
+      const exNames = [...new Set(rows.map(r => r.exercise))];
+      const exRowsHTML = exNames.map(exName => {
+        const e = rows.find(r => r.exercise === exName);
+        const effortStr = e?.effortVal
+          ? (e.effortScale === 'pct' ? e.effortVal + '% max' : 'RPE ' + e.effortVal)
+          : '';
+        const rpeNum = e?.effortScale === 'rpe' ? parseFloat(e.effortVal) : null;
+        const rpeClass = rpeNum ? (rpeNum <= 6 ? 'rpe-easy' : rpeNum <= 8 ? 'rpe-medium' : 'rpe-hard') : '';
+        const sug = getSuggestion(exName);
+        return `<div class="visit-ex-row">
+          <div class="visit-ex-name">${exName}</div>
+          <div class="visit-ex-val">${e?.sets || '—'} sets</div>
+          <div class="visit-ex-val">${e?.reps || '—'} reps</div>
+          <div class="visit-ex-val">${e?.weight ? e.weight + ' lbs' : '—'}</div>
+          <div class="visit-ex-val">${effortStr ? `<span class="rpe-badge ${rpeClass}">${effortStr}</span>` : '—'}
+            ${sug ? `<div style="margin-top:3px;">${sug}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      html += `<div class="visit-card">
+        <div class="visit-card-header" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.visit-chev').style.transform=this.nextElementSibling.classList.contains('open')?'rotate(180deg)':''">
+          <div>
+            <div class="visit-date-label">${fmtDate(date)}</div>
+            <div class="visit-focus-row">
+              <span class="focus-pill ${getFocusClass(focus)}">${focus}</span>
+              ${rows.some(r => r.pr) ? '<span class="pr-tag">🏆 PR</span>' : ''}
+              <span style="font-size:11px;color:var(--muted);">${exNames.length} exercises</span>
+            </div>
+          </div>
+          <span class="visit-chev" style="color:var(--muted);font-size:13px;transition:transform 0.2s;">▾</span>
         </div>
-        <div style="font-size:12px;color:var(--text);">${exList}</div>
-        ${note ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;">📝 ${note}</div>` : ''}
+        <div class="visit-body ${vi === 0 ? 'open' : ''}">
+          <div class="visit-ex-row" style="border-bottom:1px solid var(--border);margin-bottom:4px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Exercise</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Sets</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Reps</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Weight</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Effort / Next</div>
+          </div>
+          ${exRowsHTML}
+          ${note ? `<div class="note-line" style="margin-top:6px;">📋 ${note}</div>` : ''}
+        </div>
       </div>`;
     });
+    html += `</div>`;
   }
-  html += `</div>`;
-
-  // Danger zone
-  html += `<div class="danger-zone">
-    <div class="danger-zone-title">⚠️ Manage Client</div>
-    <button class="danger-btn ${currentClient.isArchived ? 'btn-archive unarchive' : 'btn-archive'}" onclick="archiveClient()">
-      ${currentClient.isArchived ? '↩ Unarchive' : '📦 Archive'}
-    </button>
-    <button class="danger-btn btn-delete" onclick="deleteClient()">🗑 Delete Client</button>
-  </div>`;
 
   document.getElementById('tab-overview').innerHTML = html;
 }
@@ -791,7 +1020,9 @@ async function archiveClient() {
   const c = allClients.find(x => x.id === currentClient.id);
   if (c) c.isArchived = newVal;
   showToast(newVal ? '📦 Client archived' : '↩ Client unarchived');
-  renderOverview();
+  // Refresh whichever tab is active
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+  if (activeTab === 'manage') renderManage(); else renderOverview();
 }
 
 async function deleteClient() {
@@ -818,6 +1049,18 @@ function initLogForm() {
   addExRow();
 }
 
+function setEffortScale(scale) {
+  effortScale = scale;
+  document.getElementById('effort-rpe-btn').classList.toggle('active', scale === 'rpe');
+  document.getElementById('effort-pct-btn').classList.toggle('active', scale === 'pct');
+  const colHeader = document.getElementById('effort-col-header');
+  if (colHeader) colHeader.textContent = scale === 'rpe' ? 'RPE' : '% Max';
+  // Update all existing effort placeholders
+  document.querySelectorAll('.ex-effort-input').forEach(inp => {
+    inp.placeholder = scale === 'rpe' ? 'RPE 1-10' : '% Max';
+  });
+}
+
 function addExRow() {
   exRowCount++;
   const id = exRowCount;
@@ -829,6 +1072,7 @@ function addExRow() {
     <input type="text" id="ex-sets-${id}" placeholder="Sets" />
     <input type="text" id="ex-reps-${id}" placeholder="Reps" />
     <input type="text" id="ex-wt-${id}" placeholder="Weight" />
+    <input type="text" class="ex-effort-input" id="ex-effort-${id}" placeholder="${effortScale === 'rpe' ? 'RPE 1-10' : '% Max'}" />
     <button class="remove-row-btn" onclick="removeExRow(${id})">✕</button>`;
   document.getElementById('exercise-rows').appendChild(div);
 }
@@ -853,12 +1097,15 @@ async function saveSession() {
     const id = rowEl.id.replace('exrow-', '');
     const name = document.getElementById(`ex-name-${id}`)?.value.trim();
     if (!name) return;
+    const effortVal = document.getElementById(`ex-effort-${id}`)?.value.trim() || '';
     toSave.push({
       clientName: currentClient.name, week, date, focus,
       exercise: name,
       sets: document.getElementById(`ex-sets-${id}`)?.value.trim() || '',
       reps: document.getElementById(`ex-reps-${id}`)?.value.trim() || '',
       weight: document.getElementById(`ex-wt-${id}`)?.value.trim() || '',
+      effortScale: effortVal ? effortScale : '',
+      effortVal,
       pr: isPR, sessionNotes, exNotes,
       createdAt: new Date().toISOString(),
     });
@@ -901,12 +1148,16 @@ async function saveSession() {
 function resetHistFilters() {
   const wf = document.getElementById('hist-week-filter');
   const ff = document.getElementById('hist-focus-filter');
+  const ef = document.getElementById('hist-exercise-filter');
   wf.innerHTML = '<option value="">All Weeks</option>';
   ff.innerHTML = '<option value="">All Focus Areas</option>';
+  ef.innerHTML = '<option value="">All Exercises</option>';
   const weeks = [...new Set(clientSessions.map(s => s.week).filter(w => w !== null && w !== undefined))].sort((a, b) => Number(a) - Number(b));
   weeks.forEach(w => { const o = document.createElement('option'); o.value = w; o.textContent = `Week ${w}`; wf.appendChild(o); });
   const focuses = [...new Set(clientSessions.map(s => s.focus).filter(Boolean))].sort();
   focuses.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; ff.appendChild(o); });
+  const exercises = [...new Set(clientSessions.map(s => s.exercise).filter(Boolean))].sort();
+  exercises.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; ef.appendChild(o); });
 }
 
 function renderHistory() {
@@ -915,9 +1166,11 @@ function renderHistory() {
   const wf = document.getElementById('hist-week-filter').value;
   const ff = document.getElementById('hist-focus-filter').value;
 
+  const ef = document.getElementById('hist-exercise-filter').value;
   let filtered = clientSessions;
   if (wf) filtered = filtered.filter(s => String(s.week) === String(wf));
   if (ff) filtered = filtered.filter(s => s.focus === ff);
+  if (ef) filtered = filtered.filter(s => s.exercise === ef);
 
   const byDate = {};
   filtered.forEach(row => {
@@ -943,11 +1196,19 @@ function renderHistory() {
     const exRows = [...new Set(rows.map(r => r.exercise))].map(exName => {
       const e = rows.find(r => r.exercise === exName);
       const exNote = rows.find(r => r.exercise === exName && r.exNotes)?.exNotes || '';
-      return `<div class="ex-detail-row">
-        <div class="ex-detail-name">${exName} ${e?.pr ? '<span class="pr-tag">🏆 PR</span>' : ''}</div>
+      const effortStr = e?.effortVal ? (e.effortScale === 'pct' ? e.effortVal + '%' : 'RPE ' + e.effortVal) : '—';
+      const rpeNum = e?.effortScale === 'rpe' ? parseFloat(e.effortVal) : null;
+      const rpeClass = rpeNum ? (rpeNum <= 6 ? 'rpe-easy' : rpeNum <= 8 ? 'rpe-medium' : 'rpe-hard') : '';
+      const effortHTML = e?.effortVal ? `<span class="rpe-badge ${rpeClass}">${effortStr}</span>` : '<span style="color:var(--muted)">—</span>';
+      const sug = getSuggestion(exName);
+      return `<div class="ex-detail-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">
+        <div class="ex-detail-name">${exName} ${e?.pr ? '<span class="pr-tag">🏆 PR</span>' : ''}
+          ${sug ? `<div style="margin-top:3px;">${sug}</div>` : ''}
+        </div>
         <div class="ex-detail-val">${e?.sets || '—'}</div>
         <div class="ex-detail-val">${e?.reps || '—'}</div>
         <div class="ex-detail-val">${e?.weight || '—'}</div>
+        <div class="ex-detail-val">${effortHTML}</div>
         ${exNote ? `<div style="grid-column:1/-1;" class="note-line">📝 ${exNote}</div>` : ''}
       </div>`;
     }).join('');
@@ -971,11 +1232,12 @@ function renderHistory() {
         </div>
       </div>
       <div class="history-detail" id="hd-${idx}">
-        <div class="ex-detail-row" style="margin-bottom:5px;">
+        <div class="ex-detail-row" style="margin-bottom:5px;grid-template-columns:2fr 1fr 1fr 1fr 1fr;">
           <div class="ex-detail-header">Exercise</div>
           <div class="ex-detail-header" style="text-align:center">Sets</div>
           <div class="ex-detail-header" style="text-align:center">Reps</div>
           <div class="ex-detail-header" style="text-align:center">Weight</div>
+          <div class="ex-detail-header" style="text-align:center">Effort</div>
         </div>
         ${exRows}
         ${note ? `<div class="note-line" style="margin-top:6px;">📋 ${note}</div>` : ''}
@@ -995,35 +1257,123 @@ function toggleDetail(idx) {
 function clearHistFilters() {
   document.getElementById('hist-week-filter').value = '';
   document.getElementById('hist-focus-filter').value = '';
+  document.getElementById('hist-exercise-filter').value = '';
   renderHistory();
 }
 
 // ── PROGRESS ──
+const sparklineCharts = {}; // canvas id -> Chart instance
+
 function renderProgress() {
-  const exercises = [...new Set(clientSessions.filter(s => s.weight && !isNaN(parseFloat(s.weight))).map(s => s.exercise))].sort();
-  const sel = document.getElementById('prog-exercise-select');
-  sel.innerHTML = exercises.map(e => `<option value="${e}">${e}</option>`).join('');
-  renderProgressChart();
   renderWeeklyChart();
+  renderSparklineGrid();
 }
 
-function renderProgressChart() {
-  const exName = document.getElementById('prog-exercise-select').value;
-  if (!exName) return;
-  const pts = clientSessions
-    .filter(s => s.exercise === exName && s.date && s.weight && !isNaN(parseFloat(s.weight)))
-    .map(s => ({ date: s.date, weight: parseFloat(s.weight) }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const ctx = document.getElementById('progressChart').getContext('2d');
-  if (progressChart) progressChart.destroy();
-  progressChart = new Chart(ctx, {
-    type: 'line', data: {
-      labels: pts.map(p => fmtDateShort(p.date)),
-      datasets: [{ label: 'Weight', data: pts.map(p => p.weight), borderColor: '#e8ff47', backgroundColor: 'rgba(232,255,71,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
+function renderSparklineGrid() {
+  const grid = document.getElementById('sparkline-grid');
+  if (!grid) return;
+
+  // Group sessions by exercise, only those with numeric weights
+  const byExercise = {};
+  clientSessions.forEach(s => {
+    const w = parseFloat(s.weight);
+    if (!isNaN(w) && w > 0 && s.date) {
+      if (!byExercise[s.exercise]) byExercise[s.exercise] = [];
+      byExercise[s.exercise].push({ date: s.date, weight: w });
+    }
+  });
+
+  // Sort exercises: most sessions first, then alpha
+  const exercises = Object.entries(byExercise)
+    .filter(([, pts]) => pts.length >= 2)
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+
+  // Destroy old sparkline charts
+  Object.values(sparklineCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
+  Object.keys(sparklineCharts).forEach(k => delete sparklineCharts[k]);
+
+  if (!exercises.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📊</div><h3>No Numeric Data Yet</h3><p>Log sessions with weights to see progress charts.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = exercises.map(([exName, pts], i) => {
+    const sorted = pts.sort((a, b) => a.date.localeCompare(b.date));
+    const maxW = Math.max(...sorted.map(p => p.weight));
+    const lastW = sorted[sorted.length - 1].weight;
+    const prevW = sorted.length > 1 ? sorted[sorted.length - 2].weight : lastW;
+    const trend = lastW > prevW ? 'up' : lastW < prevW ? 'down' : 'flat';
+    const trendLabel = trend === 'up' ? '↑ Progressing' : trend === 'down' ? '↓ Dropped' : '→ Steady';
+    const trendClass = trend === 'up' ? 'trend-up' : trend === 'down' ? 'trend-down' : 'trend-flat';
+    const canvasId = `spark-${i}`;
+    return `<div class="sparkline-card" id="sparkcard-${i}" onclick="toggleSparkline(${i})">
+      <div class="sparkline-title">
+        <span>${exName}</span>
+        <span class="sparkline-trend ${trendClass}">${trendLabel}</span>
+      </div>
+      <div class="sparkline-meta">${sorted.length} sessions · PR: <span class="sparkline-pr">${maxW} lbs</span></div>
+      <div class="sparkline-wrap" id="sparkwrap-${i}">
+        <canvas id="${canvasId}"></canvas>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Draw all sparklines after DOM is ready
+  setTimeout(() => {
+    exercises.forEach(([exName, pts], i) => {
+      drawSparkline(`spark-${i}`, pts, false);
+    });
+  }, 50);
+}
+
+function drawSparkline(canvasId, ptsRaw, expanded) {
+  const ctx = document.getElementById(canvasId)?.getContext('2d');
+  if (!ctx) return;
+  if (sparklineCharts[canvasId]) { sparklineCharts[canvasId].destroy(); }
+  const sorted = [...ptsRaw].sort((a, b) => a.date.localeCompare(b.date));
+  sparklineCharts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sorted.map(p => fmtDateShort(p.date)),
+      datasets: [{
+        data: sorted.map(p => p.weight),
+        borderColor: '#e8ff47',
+        backgroundColor: 'rgba(232,255,71,0.08)',
+        tension: 0.3,
+        pointRadius: expanded ? 4 : 2,
+        pointHoverRadius: 5,
+        fill: true,
+        borderWidth: expanded ? 2 : 1.5,
+      }]
     },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6b7592', font: { size: 10 } }, grid: { color: '#2a3045' } }, y: { ticks: { color: '#6b7592', font: { size: 11 } }, grid: { color: '#2a3045' } } } }
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.y} lbs` } } },
+      scales: {
+        x: { display: expanded, ticks: { color: '#6b7592', font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: '#2a3045' } },
+        y: { display: expanded, ticks: { color: '#6b7592', font: { size: 10 } }, grid: { color: '#2a3045' } }
+      }
+    }
   });
 }
+
+function toggleSparkline(i) {
+  const card = document.getElementById(`sparkcard-${i}`);
+  const wrap = document.getElementById(`sparkwrap-${i}`);
+  const canvasId = `spark-${i}`;
+  if (!card || !wrap) return;
+  const isExpanded = card.classList.toggle('expanded');
+  wrap.className = isExpanded ? 'sparkline-wrap expanded-chart' : 'sparkline-wrap';
+  // Redraw with full axes when expanded
+  const exName = card.querySelector('.sparkline-title span').textContent;
+  const pts = clientSessions
+    .filter(s => s.exercise === exName && s.date && !isNaN(parseFloat(s.weight)) && parseFloat(s.weight) > 0)
+    .map(s => ({ date: s.date, weight: parseFloat(s.weight) }));
+  setTimeout(() => drawSparkline(canvasId, pts, isExpanded), 50);
+}
+
+// Keep renderProgressChart as no-op for compat
+function renderProgressChart() {}
 
 function renderWeeklyChart() {
   const byWeek = {};
@@ -1041,6 +1391,92 @@ function renderWeeklyChart() {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6b7592', font: { size: 10 } }, grid: { color: '#2a3045' } }, y: { ticks: { color: '#6b7592', font: { size: 11 }, stepSize: 1 }, grid: { color: '#2a3045' }, title: { display: true, text: 'days', color: '#6b7592' } } } }
   });
 }
+
+// ── MANAGE ──
+function renderManage() {
+  if (!currentClient) return;
+  document.getElementById('manage-sub').textContent = currentClient.name;
+  const c = currentClient;
+  const sessionCount = clientSessions.length;
+  const dates = [...new Set(clientSessions.map(s => s.date).filter(Boolean))];
+  const lastDate = dates.sort().pop() || '';
+
+  let html = `
+    <div class="card">
+      <div class="card-title">👤 Client Info</div>
+      <div class="form-group">
+        <label>Name</label>
+        <div style="font-size:15px;font-weight:600;color:var(--text);padding:6px 0;">${c.name}</div>
+      </div>
+      <div class="form-group">
+        <label>Pronouns</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="manage-pronouns-input" value="${c.pronouns || ''}" placeholder="e.g. she/her, they/them" style="max-width:220px;" />
+          <button class="btn-add-row" style="margin-top:0;white-space:nowrap;" onclick="savePronouns()">Save</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes & Goals</label>
+        <div style="font-size:13px;color:var(--text);line-height:1.6;padding:6px 0;">${c.goals || '<span style="color:var(--muted)">No notes yet</span>'}</div>
+        <button class="btn-add-row" style="margin-top:8px;" onclick="openEditGoals()">✏️ Edit Goals</button>
+      </div>
+      <div class="form-group">
+        <label>Default Focus Template</label>
+        <select id="manage-focus-select" onchange="saveDefaultFocus()" style="max-width:200px;">
+          <option value="">— No default —</option>
+          <option ${c.defaultFocus==='Arms'?'selected':''}>Arms</option>
+          <option ${c.defaultFocus==='Legs'?'selected':''}>Legs</option>
+          <option ${c.defaultFocus==='Full Body'?'selected':''}>Full Body</option>
+          <option ${c.defaultFocus==='Back'?'selected':''}>Back</option>
+          <option ${c.defaultFocus==='Chest'?'selected':''}>Chest</option>
+          <option ${c.defaultFocus==='Shoulders'?'selected':''}>Shoulders</option>
+          <option ${c.defaultFocus==='Core'?'selected':''}>Core</option>
+          <option ${c.defaultFocus==='Cardio'?'selected':''}>Cardio</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Stats</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="stat-card"><div class="stat-val">${sessionCount}</div><div class="stat-label">Total Entries</div></div>
+        <div class="stat-card"><div class="stat-val">${dates.length}</div><div class="stat-label">Session Dates</div></div>
+      </div>
+      ${lastDate ? `<div style="font-size:12px;color:var(--muted);margin-top:10px;">Last session: ${fmtDate(lastDate)}</div>` : ''}
+    </div>
+
+    <div class="danger-zone">
+      <div class="danger-zone-title">⚠️ Danger Zone</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">These actions affect this client's data.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;">
+        <button class="danger-btn ${c.isArchived ? 'btn-archive unarchive' : 'btn-archive'}" onclick="archiveClient()">
+          ${c.isArchived ? '↩ Unarchive Client' : '📦 Archive Client'}
+        </button>
+        <button class="danger-btn btn-delete" onclick="deleteClient()">🗑 Delete Client & All Data</button>
+      </div>
+      ${c.isArchived ? '<div style="font-size:11px;color:var(--muted);margin-top:10px;">This client is currently archived and hidden from the main list.</div>' : ''}
+    </div>`;
+
+  document.getElementById('manage-content').innerHTML = html;
+}
+
+window.savePronouns = async function() {
+  const val = document.getElementById('manage-pronouns-input')?.value.trim() || '';
+  await updateDoc(doc(db, 'clients', currentClient.id), { pronouns: val });
+  currentClient.pronouns = val;
+  const c = allClients.find(x => x.id === currentClient.id);
+  if (c) c.pronouns = val;
+  showToast('✅ Pronouns saved');
+};
+
+window.saveDefaultFocus = async function() {
+  const val = document.getElementById('manage-focus-select').value;
+  await updateDoc(doc(db, 'clients', currentClient.id), { defaultFocus: val });
+  currentClient.defaultFocus = val;
+  const c = allClients.find(x => x.id === currentClient.id);
+  if (c) c.defaultFocus = val;
+  showToast('✅ Default focus saved');
+};
 
 // ── PRs ──
 function renderPRs() {
@@ -1070,6 +1506,7 @@ function openNewClientModal(isGroup) {
   document.getElementById('modal-save-btn').className = 'btn-modal-save' + (isGroup ? ' group' : '');
   document.getElementById('modal-save-btn').textContent = isGroup ? 'CREATE GROUP' : 'CREATE CLIENT';
   document.getElementById('new-client-name').value = '';
+  document.getElementById('new-client-pronouns').value = '';
   document.getElementById('new-client-goals').value = '';
   document.getElementById('new-client-focus').value = '';
   document.getElementById('new-client-modal').classList.add('open');
@@ -1088,8 +1525,9 @@ async function saveNewClient() {
   const btn = document.getElementById('modal-save-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
+    const pronouns = document.getElementById('new-client-pronouns').value.trim();
     await addDoc(collection(db, 'clients'), {
-      name, goals, defaultFocus, isGroup: isNewGroup,
+      name, goals, defaultFocus, pronouns, isGroup: isNewGroup,
       isArchived: false, createdAt: new Date().toISOString(),
     });
     closeModal();
