@@ -551,7 +551,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, writeBatch, getDoc }
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, writeBatch, getDoc, limit }
   from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -703,16 +703,16 @@ async function init() {
       await seedData();
       setLoading(88, 'Seed complete!');
     } else {
-      // Clients exist — check if sessions also exist, seed any missing
+      // Clients exist — check if ANY sessions exist (limit 1, no index needed)
       setLoading(40, `Found ${clientsSnap.size} clients. Checking sessions…`);
-      const sessSnap = await withTimeout(getDocs(query(collection(db, 'sessions'), where('seeded','==',true))), 10000, 'sessions check');
+      const sessSnap = await withTimeout(getDocs(query(collection(db, 'sessions'), limit(1))), 10000, 'sessions check');
       if (sessSnap.empty) {
-        // Clients exist but no seeded sessions — seed sessions only
+        // Clients exist but no sessions — seed sessions only
         setLoading(50, 'Seeding session history…');
         await seedSessionsOnly(clientsSnap);
         setLoading(88, 'Sessions seeded!');
       } else {
-        setLoading(60, `Found ${sessSnap.size} sessions. Loading…`);
+        setLoading(60, 'Sessions found. Loading…');
       }
     }
 
@@ -840,25 +840,48 @@ async function seedSessionsOnly(clientsSnap) {
 
 // ── LOAD CLIENTS ──
 async function loadClients() {
-  const snap = await getDocs(collection(db, 'clients'));
-  const sessSnap = await getDocs(collection(db, 'sessions'));
-
-  // Count sessions per client
-  const counts = {}, lastDates = {};
-  sessSnap.docs.forEach(d => {
-    const s = d.data();
-    const n = s.clientName;
-    counts[n] = (counts[n] || 0) + 1;
-    if (s.date && (!lastDates[n] || s.date > lastDates[n])) lastDates[n] = s.date;
-  });
-
+  // Load clients only — fast, no session scan on startup
+  const snap = await withTimeout(getDocs(collection(db, 'clients')), 10000, 'load clients');
   allClients = snap.docs.map(d => ({
     id: d.id, ...d.data(),
-    sessionCount: counts[d.data().name] || 0,
-    lastDate: lastDates[d.data().name] || '',
+    sessionCount: d.data().sessionCount || 0,
+    lastDate: d.data().lastDate || '',
   }));
   allClients.sort((a, b) => a.name.localeCompare(b.name));
   renderClientGrid();
+  // Skip background scan if counts already cached on client docs
+  const needsCountSync = allClients.some(c => c.sessionCount === 0 && !c.isGroup);
+  if (needsCountSync) loadSessionCounts();
+}
+
+async function loadSessionCounts() {
+  try {
+    const sessSnap = await getDocs(collection(db, 'sessions'));
+    const counts = {}, lastDates = {};
+    sessSnap.docs.forEach(d => {
+      const s = d.data();
+      const n = s.clientName;
+      counts[n] = (counts[n] || 0) + 1;
+      if (s.date && (!lastDates[n] || s.date > lastDates[n])) lastDates[n] = s.date;
+    });
+    // Update allClients and re-render cards with real counts
+    allClients.forEach(c => {
+      c.sessionCount = counts[c.name] || 0;
+      c.lastDate = lastDates[c.name] || c.lastDate || '';
+    });
+    renderClientGrid();
+    // Persist counts on client docs so next load is instant
+    const batch = writeBatch(db);
+    allClients.forEach(c => {
+      batch.update(doc(db, 'clients', c.id), {
+        sessionCount: c.sessionCount,
+        lastDate: c.lastDate,
+      });
+    });
+    await batch.commit();
+  } catch(e) {
+    console.warn('Could not load session counts:', e);
+  }
 }
 
 // ── RENDER CLIENT GRID ──
@@ -943,8 +966,8 @@ function goBack() {
   if (weeklyChart) { weeklyChart.destroy(); weeklyChart = null; }
   Object.values(sparklineCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
   Object.keys(sparklineCharts).forEach(k => delete sparklineCharts[k]);
-  // Refresh counts
-  loadClients();
+  // Re-render grid with already-loaded client data
+  renderClientGrid();
 }
 
 // ── TABS ──
@@ -1354,9 +1377,17 @@ async function saveSession() {
     clientSessions = await loadClientSessions(currentClient.name);
     updateHeaderPill();
 
-    // Update count on allClients
+    // Update count on allClients + persist to Firestore client doc
     const c = allClients.find(x => x.name === currentClient.name);
-    if (c) { c.sessionCount = clientSessions.length; c.lastDate = date; }
+    if (c) {
+      c.sessionCount = clientSessions.length;
+      c.lastDate = date;
+      // Persist so next startup is instant
+      updateDoc(doc(db, 'clients', currentClient.id), {
+        sessionCount: clientSessions.length,
+        lastDate: date,
+      }).catch(() => {});
+    }
 
     // Reset form
     initLogForm();
