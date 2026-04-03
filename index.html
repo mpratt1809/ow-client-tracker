@@ -267,9 +267,9 @@
     /* ── EFFORT TOGGLE ── */
     .effort-toggle-btn { padding: 5px 13px; border-radius: 100px; border: 1.5px solid var(--border); background: none; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; font-family: var(--font-body); }
     .effort-toggle-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.1); }
-    /* ── UPDATED EX ROW WITH EFFORT ── */
-    .ex-row-headers { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 30px !important; }
-    .ex-input-row { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 30px !important; }
+    /* ── UPDATED EX ROW WITH RPE + % MAX ── */
+    .ex-row-headers { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 30px !important; }
+    .ex-input-row { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 30px !important; }
     /* ── SPARKLINE CARDS ── */
     .sparkline-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.2s; }
     .sparkline-card:hover { border-color: var(--accent2); }
@@ -431,20 +431,14 @@
           </select>
         </div>
       </div>
-      <div class="form-group" style="margin-bottom:10px;">
-        <label>Effort Scale</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button class="effort-toggle-btn active" id="effort-rpe-btn" onclick="setEffortScale('rpe')">RPE (1–10)</button>
-          <button class="effort-toggle-btn" id="effort-pct-btn" onclick="setEffortScale('pct')">% of Max</button>
-          <span style="font-size:11px;color:var(--muted);">Applied to all exercises this session</span>
-        </div>
-      </div>
+
       <div class="form-group">
         <label>Exercises</label>
         <div class="ex-row-headers" id="ex-row-headers">
           <span>Exercise Name</span><span style="text-align:center">Sets</span>
           <span style="text-align:center">Reps</span><span style="text-align:center">Weight</span>
-          <span style="text-align:center" id="effort-col-header">RPE</span><span></span>
+          <span style="text-align:center">RPE (1–10)</span>
+          <span style="text-align:center">% of Max</span><span></span>
         </div>
         <div id="exercise-rows"></div>
         <button class="btn-add-row" onclick="addExRow()">＋ Add Exercise</button>
@@ -565,25 +559,11 @@ window.addEventListener('unhandledrejection', function(e) {
   if (bar) bar.style.background = '#ff4757';
   console.error('Unhandled rejection:', e.reason);
 });
-// Escape hatch — show "Open Anyway" after 8 seconds if still loading
-setTimeout(function() {
-  const ls = document.getElementById('loading-screen');
-  if (ls && ls.style.display !== 'none') {
-    const btn = document.createElement('button');
-    btn.textContent = 'Open Anyway (offline mode)';
-    btn.style.cssText = 'margin-top:14px;padding:8px 18px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;';
-    btn.onclick = function() {
-      ls.style.display = 'none';
-      document.getElementById('client-select').classList.add('visible');
-    };
-    ls.appendChild(btn);
-  }
-}, 8000);
+
 </script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, writeBatch, getDoc, limit }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
 
 const firebaseConfig = {
   apiKey: "AIzaSyA-OBWRTaF6yFZyOXR-Pn4L3Rpa1NSO3-Y",
@@ -593,8 +573,46 @@ const firebaseConfig = {
   messagingSenderId: "623637469278",
   appId: "1:623637469278:web:a137a12d4040ec95f0bccf"
 };
-const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Map compat API to match modular function names used throughout
+const collection = (db, name) => db.collection(name);
+const doc = (ref, ...path) => {
+  if (typeof ref.collection === 'function') {
+    // ref is db
+    let r = ref;
+    const parts = path.join('/').split('/');
+    for (let i = 0; i < parts.length; i += 2) {
+      r = r.collection(parts[i]);
+      if (parts[i+1]) r = r.doc(parts[i+1]);
+    }
+    return r;
+  }
+  return ref.doc(path.join('/'));
+};
+const getDocs = (ref) => ref.get().then(snap => ({ docs: snap.docs.map(d => ({ id: d.id, data: () => d.data(), ref: d.ref })), empty: snap.empty, size: snap.size }));
+const getDoc = (ref) => ref.get().then(snap => ({ exists: () => snap.exists, data: () => snap.data(), id: snap.id }));
+const addDoc = (ref, data) => ref.add(data);
+const setDoc = (ref, data) => ref.set(data);
+const updateDoc = (ref, data) => ref.update(data);
+const deleteDoc = (ref) => ref.delete();
+const query = (ref, ...constraints) => {
+  let q = ref;
+  for (const c of constraints) q = c(q);
+  return q;
+};
+const where = (field, op, val) => (ref) => ref.where(field, op, val);
+const limit = (n) => (ref) => ref.limit(n);
+const writeBatch = (db) => {
+  const batch = db.batch();
+  return {
+    set: (ref, data) => { batch.set(ref, data); },
+    update: (ref, data) => { batch.update(ref, data); },
+    delete: (ref) => { batch.delete(ref); },
+    commit: () => batch.commit()
+  };
+};
 
 // ── EXERCISE AUTOCOMPLETE LIST ──
 // Merged from master seed list + any newly logged sessions across all clients
@@ -623,16 +641,8 @@ async function prefetchAllExercises() {
   }
 }
 
-// ── Expose globals (functions not already defined as window.X) ──
-window.showTab = showTab;
-window.goBack = goBack;
-window.openNewClientModal = openNewClientModal;
-window.closeModal = closeModal;
-window.saveNewClient = saveNewClient;
-window.saveSession = saveSession;
-window.addExRow = addExRow;
-window.removeExRow = removeExRow;
-window.setEffortScale = setEffortScale;
+// Functions are global (regular script)
+
 window.renderHistory = renderHistory;
 window.clearHistFilters = clearHistFilters;
 window.renderProgressChart = renderProgressChart;
@@ -665,7 +675,7 @@ let currentClient = null;
 let clientSessions = []; // loaded sessions for current client
 let progressChart = null, weeklyChart = null;
 let exRowCount = 0;
-let effortScale = 'rpe'; // 'rpe' or 'pct'
+// effortScale removed — RPE and % max now tracked independently per exercise
 let isNewGroup = false;
 let showArchived = false;
 
@@ -950,7 +960,7 @@ function buildClientCard(client) {
   return card;
 }
 
-window.toggleShowArchived = function() {
+function toggleShowArchived() {
   showArchived = !showArchived;
   document.getElementById('archived-toggle-btn').textContent = showArchived ? '👁 Hide Archived' : '👁 Show Archived';
   renderClientGrid();
@@ -984,7 +994,7 @@ function updateHeaderPill() {
   document.getElementById('header-pill').textContent = maxWeek ? `Week ${maxWeek}` : 'No sessions';
 }
 
-window.goBack = function() {
+function goBack() {
   document.getElementById('app').className = '';
   document.getElementById('client-select').classList.add('visible');
   currentClient = null;
@@ -998,7 +1008,7 @@ window.goBack = function() {
 }
 
 // ── TABS ──
-window.showTab = function(name) {
+function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
   if (name === 'overview') renderOverview();
@@ -1023,8 +1033,8 @@ function getSuggestion(exerciseName) {
   const prev = exSessions[exSessions.length - 2];
   const lastW = parseFloat(last.weight);
   const prevW = parseFloat(prev.weight);
-  const lastRPE = last.effortScale === 'rpe' && last.effortVal ? parseFloat(last.effortVal) : null;
-  const prevRPE = prev.effortScale === 'rpe' && prev.effortVal ? parseFloat(prev.effortVal) : null;
+  const lastRPE = parseFloat(last.rpe || (last.effortScale === 'rpe' ? last.effortVal : '')) || null;
+  const prevRPE = parseFloat(prev.rpe || (prev.effortScale === 'rpe' ? prev.effortVal : '')) || null;
 
   // Deload: RPE 9-10 twice in a row, or weight dropped
   if ((lastRPE >= 9 && prevRPE >= 9) || lastW < prevW) {
@@ -1107,18 +1117,19 @@ function renderOverview() {
       const exNames = [...new Set(rows.map(r => r.exercise))];
       const exRowsHTML = exNames.map(exName => {
         const e = rows.find(r => r.exercise === exName);
-        const effortStr = e?.effortVal
-          ? (e.effortScale === 'pct' ? e.effortVal + '% max' : 'RPE ' + e.effortVal)
-          : '';
-        const rpeNum = e?.effortScale === 'rpe' ? parseFloat(e.effortVal) : null;
-        const rpeClass = rpeNum ? (rpeNum <= 6 ? 'rpe-easy' : rpeNum <= 8 ? 'rpe-medium' : 'rpe-hard') : '';
+        const vRpe = parseFloat(e?.rpe || (e?.effortScale === 'rpe' ? e?.effortVal : '')) || null;
+        const vPct = parseFloat(e?.pct || (e?.effortScale === 'pct' ? e?.effortVal : '')) || null;
+        const vRpeClass = vRpe ? (vRpe <= 6 ? 'rpe-easy' : vRpe <= 8 ? 'rpe-medium' : 'rpe-hard') : '';
+        const vEffortParts = [];
+        if (vRpe) vEffortParts.push(`<span class="rpe-badge ${vRpeClass}">RPE ${vRpe}</span>`);
+        if (vPct) vEffortParts.push(`<span class="rpe-badge rpe-medium">${vPct}%</span>`);
         const sug = getSuggestion(exName);
         return `<div class="visit-ex-row">
           <div class="visit-ex-name">${exName}</div>
           <div class="visit-ex-val">${e?.sets || '—'} sets</div>
           <div class="visit-ex-val">${e?.reps || '—'} reps</div>
           <div class="visit-ex-val">${e?.weight ? e.weight + ' lbs' : '—'}</div>
-          <div class="visit-ex-val">${effortStr ? `<span class="rpe-badge ${rpeClass}">${effortStr}</span>` : '—'}
+          <div class="visit-ex-val">${vEffortParts.length ? vEffortParts.join(' ') : '—'}
             ${sug ? `<div style="margin-top:3px;">${sug}</div>` : ''}
           </div>
         </div>`;
@@ -1155,7 +1166,7 @@ function renderOverview() {
 }
 
 // ── EDIT GOALS ──
-window.openEditGoals = function() {
+function openEditGoals() {
   document.getElementById('edit-goals-text').value = currentClient.goals || '';
   document.getElementById('edit-goals-modal').classList.add('open');
 }
@@ -1207,25 +1218,12 @@ function initLogForm() {
   addExRow();
 }
 
-window.setEffortScale = function(scale) {
-  effortScale = scale;
-  document.getElementById('effort-rpe-btn').classList.toggle('active', scale === 'rpe');
-  document.getElementById('effort-pct-btn').classList.toggle('active', scale === 'pct');
-  const colHeader = document.getElementById('effort-col-header');
-  if (colHeader) colHeader.textContent = scale === 'rpe' ? 'RPE' : '% Max';
-  // Update all existing effort placeholders
-  document.querySelectorAll('.ex-effort-input').forEach(inp => {
-    inp.placeholder = scale === 'rpe' ? 'RPE 1-10' : '% Max';
-  });
-}
-
-window.addExRow = function() {
+function addExRow() {
   exRowCount++;
   const id = exRowCount;
   const div = document.createElement('div');
   div.className = 'ex-input-row';
   div.id = `exrow-${id}`;
-  // Wrap name cell in relative div for dropdown positioning
   div.innerHTML = `
     <div class="ex-name-wrap" id="ex-name-wrap-${id}">
       <input type="text" class="ex-name-cell" id="ex-name-${id}"
@@ -1238,80 +1236,20 @@ window.addExRow = function() {
     <input type="text" id="ex-sets-${id}" placeholder="Sets" />
     <input type="text" id="ex-reps-${id}" placeholder="Reps" />
     <input type="text" id="ex-wt-${id}" placeholder="Weight" />
-    <input type="text" class="ex-effort-input" id="ex-effort-${id}" placeholder="${effortScale === 'rpe' ? 'RPE 1-10' : '% Max'}" />
+    <input type="text" class="ex-effort-input" id="ex-rpe-${id}" placeholder="e.g. 7" style="text-align:center" />
+    <input type="text" class="ex-effort-input" id="ex-pct-${id}" placeholder="e.g. 75" style="text-align:center" />
     <button class="remove-row-btn" onclick="removeExRow(${id})">✕</button>`;
   document.getElementById('exercise-rows').appendChild(div);
-
   // Close suggestions when clicking outside
   document.addEventListener('click', function handler(e) {
     const wrap = document.getElementById(`ex-name-wrap-${id}`);
-    if (wrap && !wrap.contains(e.target)) {
-      closeSuggestions(id);
-    }
+    if (wrap && !wrap.contains(e.target)) closeSuggestions(id);
   });
 }
 
-window.showExSuggestions = function(id) {
-  const input = document.getElementById(`ex-name-${id}`);
-  const dropdown = document.getElementById(`ex-suggestions-${id}`);
-  if (!input || !dropdown) return;
+function setEffortScale() {} // no-op
 
-  const q = input.value.trim().toLowerCase();
-  const allEx = getAllExercises();
-
-  let matches;
-  if (!q) {
-    // Show recently used by this client first (last 10 unique exercises)
-    const recentByClient = [...new Set(
-      clientSessions.map(s => s.exercise).filter(Boolean)
-    )].slice(0, 10);
-    const rest = allEx.filter(e => !recentByClient.includes(e)).slice(0, 15);
-    matches = [...recentByClient, ...rest];
-  } else {
-    // Prioritise: starts-with > contains, client's own exercises first
-    const clientEx = new Set(clientSessions.map(s => s.exercise).filter(Boolean));
-    const startsWith = allEx.filter(e => e.toLowerCase().startsWith(q));
-    const contains   = allEx.filter(e => !e.toLowerCase().startsWith(q) && e.toLowerCase().includes(q));
-    matches = [...startsWith, ...contains].slice(0, 18);
-    // Mark which ones are from this client
-    matches = matches.map(e => ({ name: e, mine: clientEx.has(e) }));
-  }
-
-  if (!matches.length && q) {
-    // Offer to add as custom
-    dropdown.innerHTML = `<div class="ex-sug-item ex-sug-custom" onclick="selectExSuggestion(${id}, '${q.replace(/'/g, "\'")}')">
-      ✏️ Add "<strong>${q}</strong>" as new exercise
-    </div>`;
-    dropdown.classList.add('open');
-    return;
-  }
-
-  if (!matches.length) { dropdown.classList.remove('open'); return; }
-
-  const isTyping = !!q;
-  dropdown.innerHTML = matches.map((item, idx) => {
-    const name = isTyping ? item.name : item;
-    const mine = isTyping ? item.mine : clientSessions.some(s => s.exercise === name);
-    const highlight = isTyping && q
-      ? name.replace(new RegExp(`(${q})`, 'gi'), '<mark>$1</mark>')
-      : name;
-    return `<div class="ex-sug-item ${mine ? 'ex-sug-mine' : ''}"
-      data-idx="${idx}"
-      onmousedown="selectExSuggestion(${id}, this.dataset.name)"
-      data-name="${name.replace(/"/g, '&quot;')}">
-      ${highlight}
-      ${mine ? '<span class="ex-sug-tag">this client</span>' : ''}
-    </div>`;
-  }).join('');
-
-  if (!isTyping) {
-    dropdown.innerHTML = '<div class="ex-sug-group-label">Recent &amp; suggested</div>' + dropdown.innerHTML;
-  }
-
-  dropdown.classList.add('open');
-};
-
-window.selectExSuggestion = function(id, name) {
+function selectExSuggestion(id, name) {
   const input = document.getElementById(`ex-name-${id}`);
   if (input) input.value = normalizeExercise(name);
   closeSuggestions(id);
@@ -1329,7 +1267,7 @@ function closeSuggestions(id) {
 }
 
 let exFocusIdx = -1;
-window.exKeyNav = function(event, id) {
+function exKeyNav(event, id) {
   const dropdown = document.getElementById(`ex-suggestions-${id}`);
   if (!dropdown || !dropdown.classList.contains('open')) return;
   const items = dropdown.querySelectorAll('.ex-sug-item');
@@ -1352,7 +1290,65 @@ window.exKeyNav = function(event, id) {
   }
 };
 
-window.removeExRow = function(id) { document.getElementById(`exrow-${id}`)?.remove(); }
+function removeExRow(id) { document.getElementById(`exrow-${id}`)?.remove(); }
+
+function showExSuggestions(id) {
+  const input = document.getElementById(`ex-name-${id}`);
+  const dropdown = document.getElementById(`ex-suggestions-${id}`);
+  if (!input || !dropdown) return;
+  const q = input.value.trim().toLowerCase();
+  const allEx = getAllExercises();
+  let matches;
+  if (!q) {
+    const recentByClient = [...new Set(clientSessions.map(s => s.exercise).filter(Boolean))].slice(0, 10);
+    const rest = allEx.filter(e => !recentByClient.includes(e)).slice(0, 15);
+    matches = [...recentByClient, ...rest];
+  } else {
+    const clientEx = new Set(clientSessions.map(s => s.exercise).filter(Boolean));
+    const startsWith = allEx.filter(e => e.toLowerCase().startsWith(q));
+    const contains   = allEx.filter(e => !e.toLowerCase().startsWith(q) && e.toLowerCase().includes(q));
+    matches = [...startsWith, ...contains].slice(0, 18).map(e => ({ name: e, mine: clientEx.has(e) }));
+  }
+  if (!matches.length && q) {
+    dropdown.innerHTML = `<div class="ex-sug-item ex-sug-custom" onclick="selectExSuggestion(${id}, '${q.replace(/'/g, "\'")}')">✏️ Add "<strong>${q}</strong>" as new exercise</div>`;
+    dropdown.classList.add('open'); return;
+  }
+  if (!matches.length) { dropdown.classList.remove('open'); return; }
+  const isTyping = !!q;
+  dropdown.innerHTML = matches.map((item, idx) => {
+    const name = isTyping ? item.name : item;
+    const mine = isTyping ? item.mine : clientSessions.some(s => s.exercise === name);
+    const highlight = isTyping ? name.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark>$1</mark>') : name;
+    return `<div class="ex-sug-item ${mine ? 'ex-sug-mine' : ''}" onmousedown="selectExSuggestion(${id}, this.dataset.name)" data-name="${name.replace(/"/g, '&quot;')}">${highlight}${mine ? '<span class="ex-sug-tag">this client</span>' : ''}</div>`;
+  }).join('');
+  if (!isTyping) dropdown.innerHTML = '<div class="ex-sug-group-label">Recent &amp; suggested</div>' + dropdown.innerHTML;
+  dropdown.classList.add('open');
+}
+
+function closeSuggestions(id) {
+  document.getElementById(`ex-suggestions-${id}`)?.classList.remove('open');
+}
+
+let exFocusIdx = -1;
+function exKeyNav(event, id) {
+  const dropdown = document.getElementById(`ex-suggestions-${id}`);
+  if (!dropdown || !dropdown.classList.contains('open')) return;
+  const items = dropdown.querySelectorAll('.ex-sug-item');
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    exFocusIdx = Math.min(exFocusIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('focused', i === exFocusIdx));
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    exFocusIdx = Math.max(exFocusIdx - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('focused', i === exFocusIdx));
+  } else if (event.key === 'Enter' && exFocusIdx >= 0) {
+    event.preventDefault();
+    const focused = items[exFocusIdx];
+    if (focused) selectExSuggestion(id, focused.dataset.name || focused.textContent.trim());
+    exFocusIdx = -1;
+  } else if (event.key === 'Escape') { closeSuggestions(id); exFocusIdx = -1; }
+}
 
 async function saveSession() {
   if (!currentClient) return;
@@ -1372,15 +1368,18 @@ async function saveSession() {
     const id = rowEl.id.replace('exrow-', '');
     const name = document.getElementById(`ex-name-${id}`)?.value.trim();
     if (!name) return;
-    const effortVal = document.getElementById(`ex-effort-${id}`)?.value.trim() || '';
+    const rpeVal = document.getElementById(`ex-rpe-${id}`)?.value.trim() || '';
+    const pctVal = document.getElementById(`ex-pct-${id}`)?.value.trim() || '';
     toSave.push({
       clientName: currentClient.name, week, date, focus,
       exercise: normalizeExercise(name),
       sets: document.getElementById(`ex-sets-${id}`)?.value.trim() || '',
       reps: document.getElementById(`ex-reps-${id}`)?.value.trim() || '',
       weight: document.getElementById(`ex-wt-${id}`)?.value.trim() || '',
-      effortScale: effortVal ? effortScale : '',
-      effortVal,
+      rpe: rpeVal,
+      pct: pctVal,
+      effortScale: rpeVal ? 'rpe' : pctVal ? 'pct' : '',
+      effortVal: rpeVal || pctVal || '',
       pr: isPR, sessionNotes, exNotes,
       createdAt: new Date().toISOString(),
     });
@@ -1450,7 +1449,7 @@ function resetHistFilters() {
   exercises.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; ef.appendChild(o); });
 }
 
-window.renderHistory = function() {
+function renderHistory() {
   if (!currentClient) return;
   document.getElementById('history-sub').textContent = `${currentClient.name} · ${clientSessions.length} total entries`;
   const wf = document.getElementById('hist-week-filter').value;
@@ -1486,10 +1485,13 @@ window.renderHistory = function() {
     const exRows = [...new Set(rows.map(r => r.exercise))].map(exName => {
       const e = rows.find(r => r.exercise === exName);
       const exNote = rows.find(r => r.exercise === exName && r.exNotes)?.exNotes || '';
-      const effortStr = e?.effortVal ? (e.effortScale === 'pct' ? e.effortVal + '%' : 'RPE ' + e.effortVal) : '—';
-      const rpeNum = e?.effortScale === 'rpe' ? parseFloat(e.effortVal) : null;
+      const rpeNum = parseFloat(e?.rpe || (e?.effortScale === 'rpe' ? e?.effortVal : '')) || null;
+      const pctNum = parseFloat(e?.pct || (e?.effortScale === 'pct' ? e?.effortVal : '')) || null;
       const rpeClass = rpeNum ? (rpeNum <= 6 ? 'rpe-easy' : rpeNum <= 8 ? 'rpe-medium' : 'rpe-hard') : '';
-      const effortHTML = e?.effortVal ? `<span class="rpe-badge ${rpeClass}">${effortStr}</span>` : '<span style="color:var(--muted)">—</span>';
+      const effortParts = [];
+      if (rpeNum) effortParts.push(`<span class="rpe-badge ${rpeClass}">RPE ${rpeNum}</span>`);
+      if (pctNum) effortParts.push(`<span class="rpe-badge rpe-medium">${pctNum}%</span>`);
+      const effortHTML = effortParts.length ? effortParts.join(' ') : '<span style="color:var(--muted)">—</span>';
       const sug = getSuggestion(exName);
       return `<div class="ex-detail-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">
         <div class="ex-detail-name">${exName} ${e?.pr ? '<span class="pr-tag">🏆 PR</span>' : ''}
@@ -1536,7 +1538,7 @@ window.renderHistory = function() {
   }).join('');
 }
 
-window.toggleDetail = function(idx) {
+function toggleDetail(idx) {
   const d = document.getElementById(`hd-${idx}`);
   const c = document.getElementById(`chev-${idx}`);
   if (!d) return;
@@ -1544,7 +1546,7 @@ window.toggleDetail = function(idx) {
   if (c) c.style.transform = open ? 'rotate(180deg)' : '';
 }
 
-window.clearHistFilters = function() {
+function clearHistFilters() {
   document.getElementById('hist-week-filter').value = '';
   document.getElementById('hist-focus-filter').value = '';
   document.getElementById('hist-exercise-filter').value = '';
@@ -1647,7 +1649,7 @@ function drawSparkline(canvasId, ptsRaw, expanded) {
   });
 }
 
-window.toggleSparkline = function(i) {
+function toggleSparkline(i) {
   const card = document.getElementById(`sparkcard-${i}`);
   const wrap = document.getElementById(`sparkwrap-${i}`);
   const canvasId = `spark-${i}`;
@@ -1663,7 +1665,7 @@ window.toggleSparkline = function(i) {
 }
 
 // Keep renderProgressChart as no-op for compat
-window.renderProgressChart = function() {};
+function renderProgressChart() {}
 
 function renderWeeklyChart() {
   const byWeek = {};
@@ -1750,7 +1752,7 @@ function renderManage() {
   document.getElementById('manage-content').innerHTML = content;
 }
 
-window.savePronouns = async function() {
+async function savePronouns() {
   const val = document.getElementById('manage-pronouns-input')?.value.trim() || '';
   await updateDoc(doc(db, 'clients', currentClient.id), { pronouns: val });
   currentClient.pronouns = val;
@@ -1759,7 +1761,7 @@ window.savePronouns = async function() {
   showToast('✅ Pronouns saved');
 };
 
-window.saveDefaultFocus = async function() {
+async function saveDefaultFocus() {
   const val = document.getElementById('manage-focus-select').value;
   await updateDoc(doc(db, 'clients', currentClient.id), { defaultFocus: val });
   currentClient.defaultFocus = val;
@@ -1769,7 +1771,7 @@ window.saveDefaultFocus = async function() {
 };
 
 // ── PRs ──
-window.renderPRs = function() {
+function renderPRs() {
   const search = (document.getElementById('pr-search')?.value || '').toLowerCase();
   const prs = {};
   clientSessions.forEach(s => {
@@ -1789,7 +1791,7 @@ window.renderPRs = function() {
 }
 
 // ── NEW CLIENT MODAL ──
-window.openNewClientModal = function(isGroup) {
+function openNewClientModal(isGroup) {
   isNewGroup = isGroup;
   document.getElementById('modal-title').innerHTML = isGroup ? 'NEW <span>GROUP</span>' : 'NEW <span>CLIENT</span>';
   document.getElementById('modal-title').className = 'modal-title' + (isGroup ? ' group' : '');
@@ -1803,7 +1805,7 @@ window.openNewClientModal = function(isGroup) {
   setTimeout(() => document.getElementById('new-client-name').focus(), 100);
 }
 
-window.closeModal = function() {
+function closeModal() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
 }
 
