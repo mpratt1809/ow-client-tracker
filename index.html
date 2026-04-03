@@ -1373,7 +1373,7 @@ function renderManage() {
     (lastDate?'<div style="font-size:12px;color:var(--muted);margin-top:10px;">Last session: '+fmtDate(lastDate)+'</div>':'') +
     '</div>' +
     '<div class="danger-zone"><div class="danger-zone-title">⚠️ Danger Zone</div>' +
-    '<p style="font-size:12px;color:var(--muted);margin-bottom:14px;">These actions affect this client's data.</p>' +
+    '<p style="font-size:12px;color:var(--muted);margin-bottom:14px;">These actions affect this client&#39;s data.</p>' +
     '<div style="display:flex;flex-wrap:wrap;gap:10px;">' +
     '<button class="danger-btn '+(c.isArchived?'btn-archive unarchive':'btn-archive')+'" onclick="archiveClient()">'+(c.isArchived?'↩ Unarchive Client':'📦 Archive Client')+'</button>' +
     '<button class="danger-btn btn-delete" onclick="deleteClient()">🗑 Delete Client & All Data</button></div>' +
