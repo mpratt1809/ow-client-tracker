@@ -549,10 +549,41 @@
 </footer>
 <div id="toast"></div>
 
+<script>
+// Catch any module load errors visibly
+window.addEventListener('error', function(e) {
+  const msg = document.getElementById('loading-msg');
+  const bar = document.getElementById('loading-bar');
+  if (msg) msg.textContent = '⚠️ ' + (e.message || 'Script error');
+  if (bar) bar.style.background = '#ff4757';
+  console.error('Global error:', e);
+});
+window.addEventListener('unhandledrejection', function(e) {
+  const msg = document.getElementById('loading-msg');
+  const bar = document.getElementById('loading-bar');
+  if (msg) msg.textContent = '⚠️ ' + (e.reason?.message || String(e.reason) || 'Unhandled promise rejection');
+  if (bar) bar.style.background = '#ff4757';
+  console.error('Unhandled rejection:', e.reason);
+});
+// Escape hatch — show "Open Anyway" after 8 seconds if still loading
+setTimeout(function() {
+  const ls = document.getElementById('loading-screen');
+  if (ls && ls.style.display !== 'none') {
+    const btn = document.createElement('button');
+    btn.textContent = 'Open Anyway (offline mode)';
+    btn.style.cssText = 'margin-top:14px;padding:8px 18px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;';
+    btn.onclick = function() {
+      ls.style.display = 'none';
+      document.getElementById('client-select').classList.add('visible');
+    };
+    ls.appendChild(btn);
+  }
+}, 8000);
+</script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, writeBatch, getDoc, limit }
-  from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA-OBWRTaF6yFZyOXR-Pn4L3Rpa1NSO3-Y",
@@ -592,7 +623,7 @@ async function prefetchAllExercises() {
   }
 }
 
-// ── Expose globals ──
+// ── Expose globals (functions not already defined as window.X) ──
 window.showTab = showTab;
 window.goBack = goBack;
 window.openNewClientModal = openNewClientModal;
@@ -601,16 +632,13 @@ window.saveNewClient = saveNewClient;
 window.saveSession = saveSession;
 window.addExRow = addExRow;
 window.removeExRow = removeExRow;
-  window.showExSuggestions = showExSuggestions;
-  window.selectExSuggestion = selectExSuggestion;
-  window.exKeyNav = exKeyNav;
-  window.setEffortScale = setEffortScale;
+window.setEffortScale = setEffortScale;
 window.renderHistory = renderHistory;
 window.clearHistFilters = clearHistFilters;
 window.renderProgressChart = renderProgressChart;
 window.renderPRs = renderPRs;
-  window.toggleSparkline = toggleSparkline;
-  window.renderManage = renderManage;
+window.toggleSparkline = toggleSparkline;
+window.renderManage = renderManage;
 window.toggleDetail = toggleDetail;
 window.toggleShowArchived = toggleShowArchived;
 window.archiveClient = archiveClient;
@@ -687,40 +715,40 @@ function withTimeout(promise, ms, label) {
 }
 
 async function init() {
-  setLoading(10, 'Connecting to database…');
+  const t0 = Date.now();
+  const step = (pct, msg) => { setLoading(pct, msg); console.log(`[${Date.now()-t0}ms] ${msg}`); };
+
+  step(10, 'Connecting to Firebase…');
   document.getElementById('select-date').textContent = displayNow();
   document.getElementById('header-date').textContent = displayNow();
 
   try {
-    // Step 1: Check if clients already exist (handles partial seeds from prev attempts)
-    setLoading(20, 'Checking existing data…');
-    const clientsSnap = await withTimeout(getDocs(collection(db, 'clients')), 10000, 'load clients check');
+    step(20, 'Checking existing clients…');
+    const clientsSnap = await withTimeout(getDocs(collection(db, 'clients')), 12000, 'clients check');
     const hasClients = !clientsSnap.empty;
+    console.log(`[${Date.now()-t0}ms] hasClients=${hasClients}, count=${clientsSnap.size}`);
 
     if (!hasClients) {
-      // Brand new database — seed everything
-      setLoading(30, 'First run — seeding clients…');
+      step(30, 'First run — seeding clients…');
       await seedData();
-      setLoading(88, 'Seed complete!');
+      step(88, 'Seed complete!');
     } else {
-      // Clients exist — check if ANY sessions exist (limit 1, no index needed)
-      setLoading(40, `Found ${clientsSnap.size} clients. Checking sessions…`);
-      const sessSnap = await withTimeout(getDocs(query(collection(db, 'sessions'), limit(1))), 10000, 'sessions check');
+      step(40, `${clientsSnap.size} clients found. Checking sessions…`);
+      const sessSnap = await withTimeout(getDocs(query(collection(db, 'sessions'), limit(1))), 12000, 'sessions check');
+      console.log(`[${Date.now()-t0}ms] hasSessions=${!sessSnap.empty}`);
       if (sessSnap.empty) {
-        // Clients exist but no sessions — seed sessions only
-        setLoading(50, 'Seeding session history…');
+        step(50, 'Seeding session history…');
         await seedSessionsOnly(clientsSnap);
-        setLoading(88, 'Sessions seeded!');
+        step(88, 'Sessions seeded!');
       } else {
-        setLoading(60, 'Sessions found. Loading…');
+        step(60, 'Sessions found. Building app…');
       }
     }
 
-    // Step 2: Load full client list with counts
-    setLoading(90, 'Building client list…');
+    step(90, 'Loading client list…');
     await loadClients();
-    prefetchAllExercises(); // background prefetch — non-blocking
-    setLoading(100, 'Ready!');
+    prefetchAllExercises();
+    step(100, 'Ready!');
     setTimeout(() => {
       document.getElementById('loading-screen').style.display = 'none';
       document.getElementById('client-select').classList.add('visible');
@@ -728,12 +756,11 @@ async function init() {
 
   } catch(e) {
     console.error('Init error:', e);
-    // Check if it's a permissions error
     const msg = e.message || String(e);
     if (msg.includes('permission') || msg.includes('PERMISSION')) {
-      showLoadingError('Firebase permissions denied. Check Firestore rules are in test mode.');
+      showLoadingError('Firebase permissions denied — check Firestore rules in test mode.');
     } else if (msg.includes('Timeout')) {
-      showLoadingError(msg + '. Check your internet connection.');
+      showLoadingError('Connection timed out. Check internet and Firebase console.');
     } else {
       showLoadingError(msg);
     }
@@ -923,7 +950,7 @@ function buildClientCard(client) {
   return card;
 }
 
-function toggleShowArchived() {
+window.toggleShowArchived = function() {
   showArchived = !showArchived;
   document.getElementById('archived-toggle-btn').textContent = showArchived ? '👁 Hide Archived' : '👁 Show Archived';
   renderClientGrid();
@@ -957,7 +984,7 @@ function updateHeaderPill() {
   document.getElementById('header-pill').textContent = maxWeek ? `Week ${maxWeek}` : 'No sessions';
 }
 
-function goBack() {
+window.goBack = function() {
   document.getElementById('app').className = '';
   document.getElementById('client-select').classList.add('visible');
   currentClient = null;
@@ -971,7 +998,7 @@ function goBack() {
 }
 
 // ── TABS ──
-function showTab(name) {
+window.showTab = function(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
   if (name === 'overview') renderOverview();
@@ -1128,7 +1155,7 @@ function renderOverview() {
 }
 
 // ── EDIT GOALS ──
-function openEditGoals() {
+window.openEditGoals = function() {
   document.getElementById('edit-goals-text').value = currentClient.goals || '';
   document.getElementById('edit-goals-modal').classList.add('open');
 }
@@ -1180,7 +1207,7 @@ function initLogForm() {
   addExRow();
 }
 
-function setEffortScale(scale) {
+window.setEffortScale = function(scale) {
   effortScale = scale;
   document.getElementById('effort-rpe-btn').classList.toggle('active', scale === 'rpe');
   document.getElementById('effort-pct-btn').classList.toggle('active', scale === 'pct');
@@ -1192,7 +1219,7 @@ function setEffortScale(scale) {
   });
 }
 
-function addExRow() {
+window.addExRow = function() {
   exRowCount++;
   const id = exRowCount;
   const div = document.createElement('div');
@@ -1325,7 +1352,7 @@ window.exKeyNav = function(event, id) {
   }
 };
 
-function removeExRow(id) { document.getElementById(`exrow-${id}`)?.remove(); }
+window.removeExRow = function(id) { document.getElementById(`exrow-${id}`)?.remove(); }
 
 async function saveSession() {
   if (!currentClient) return;
@@ -1423,7 +1450,7 @@ function resetHistFilters() {
   exercises.forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = e; ef.appendChild(o); });
 }
 
-function renderHistory() {
+window.renderHistory = function() {
   if (!currentClient) return;
   document.getElementById('history-sub').textContent = `${currentClient.name} · ${clientSessions.length} total entries`;
   const wf = document.getElementById('hist-week-filter').value;
@@ -1509,7 +1536,7 @@ function renderHistory() {
   }).join('');
 }
 
-function toggleDetail(idx) {
+window.toggleDetail = function(idx) {
   const d = document.getElementById(`hd-${idx}`);
   const c = document.getElementById(`chev-${idx}`);
   if (!d) return;
@@ -1517,7 +1544,7 @@ function toggleDetail(idx) {
   if (c) c.style.transform = open ? 'rotate(180deg)' : '';
 }
 
-function clearHistFilters() {
+window.clearHistFilters = function() {
   document.getElementById('hist-week-filter').value = '';
   document.getElementById('hist-focus-filter').value = '';
   document.getElementById('hist-exercise-filter').value = '';
@@ -1620,7 +1647,7 @@ function drawSparkline(canvasId, ptsRaw, expanded) {
   });
 }
 
-function toggleSparkline(i) {
+window.toggleSparkline = function(i) {
   const card = document.getElementById(`sparkcard-${i}`);
   const wrap = document.getElementById(`sparkwrap-${i}`);
   const canvasId = `spark-${i}`;
@@ -1636,7 +1663,7 @@ function toggleSparkline(i) {
 }
 
 // Keep renderProgressChart as no-op for compat
-function renderProgressChart() {}
+window.renderProgressChart = function() {};
 
 function renderWeeklyChart() {
   const byWeek = {};
@@ -1742,7 +1769,7 @@ window.saveDefaultFocus = async function() {
 };
 
 // ── PRs ──
-function renderPRs() {
+window.renderPRs = function() {
   const search = (document.getElementById('pr-search')?.value || '').toLowerCase();
   const prs = {};
   clientSessions.forEach(s => {
@@ -1762,7 +1789,7 @@ function renderPRs() {
 }
 
 // ── NEW CLIENT MODAL ──
-function openNewClientModal(isGroup) {
+window.openNewClientModal = function(isGroup) {
   isNewGroup = isGroup;
   document.getElementById('modal-title').innerHTML = isGroup ? 'NEW <span>GROUP</span>' : 'NEW <span>CLIENT</span>';
   document.getElementById('modal-title').className = 'modal-title' + (isGroup ? ' group' : '');
@@ -1776,7 +1803,7 @@ function openNewClientModal(isGroup) {
   setTimeout(() => document.getElementById('new-client-name').focus(), 100);
 }
 
-function closeModal() {
+window.closeModal = function() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
 }
 
