@@ -476,6 +476,12 @@
   <div id="tab-progress" class="tab-panel">
     <div class="section-head">PROGRESS</div>
     <div class="section-sub">Weight over time per exercise · click any card to expand</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+      <select id="progress-ex-filter" onchange="filterSparklines()" style="flex:1;min-width:180px;max-width:340px;font-size:13px;">
+        <option value="">All exercises</option>
+      </select>
+      <button class="chart-pill active" onclick="clearProgressFilter()">✕ Show all</button>
+    </div>
     <div id="sparkline-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;margin-bottom:16px;"></div>
     <div class="card">
       <div class="card-title">📅 Sessions per Week</div>
@@ -642,6 +648,7 @@ async function prefetchAllExercises() {
 }
 
 // Functions are global (regular script)
+// filterSparklines and clearProgressFilter are also global
 
 window.renderHistory = renderHistory;
 window.clearHistFilters = clearHistFilters;
@@ -952,7 +959,7 @@ function buildClientCard(client) {
   card.innerHTML = `
     <div class="client-avatar">${initials}</div>
     <h3>${client.name}</h3>
-    ${client.pronouns ? `<div class="client-pronouns">${client.pronouns}</div>` : ''}
+    ${client.pronouns ? '<div class="client-pronouns">' + client.pronouns + '</div>' : ''}
     <div class="client-meta">Last: ${lastStr}</div>
     <div class="client-count-badge">${client.sessionCount} sessions</div>
     ${client.isArchived ? '<div style="font-size:10px;color:var(--muted);margin-top:4px;">ARCHIVED</div>' : ''}`;
@@ -1130,7 +1137,7 @@ function renderOverview() {
           <div class="visit-ex-val">${e?.reps || '—'} reps</div>
           <div class="visit-ex-val">${e?.weight ? e.weight + ' lbs' : '—'}</div>
           <div class="visit-ex-val">${vEffortParts.length ? vEffortParts.join(' ') : '—'}
-            ${sug ? `<div style="margin-top:3px;">${sug}</div>` : ''}
+            ${sug ? '<div style="margin-top:3px;">' + sug + '</div>' : ''}
           </div>
         </div>`;
       }).join('');
@@ -1155,7 +1162,7 @@ function renderOverview() {
             <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Effort / Next</div>
           </div>
           ${exRowsHTML}
-          ${note ? `<div class="note-line" style="margin-top:6px;">📋 ${note}</div>` : ''}
+          ${note ? '<div class="note-line" style="margin-top:6px;">📋 ' + note + '</div>' : ''}
         </div>
       </div>`;
     });
@@ -1392,13 +1399,13 @@ function renderHistory() {
       const sug = getSuggestion(exName);
       return `<div class="ex-detail-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">
         <div class="ex-detail-name">${exName} ${e?.pr ? '<span class="pr-tag">🏆 PR</span>' : ''}
-          ${sug ? `<div style="margin-top:3px;">${sug}</div>` : ''}
+          ${sug ? '<div style="margin-top:3px;">' + sug + '</div>' : ''}
         </div>
         <div class="ex-detail-val">${e?.sets || '—'}</div>
         <div class="ex-detail-val">${e?.reps || '—'}</div>
         <div class="ex-detail-val">${e?.weight || '—'}</div>
         <div class="ex-detail-val">${effortHTML}</div>
-        ${exNote ? `<div style="grid-column:1/-1;" class="note-line">📝 ${exNote}</div>` : ''}
+        ${exNote ? '<div style="grid-column:1/-1;" class="note-line">📝 ' + exNote + '</div>' : ''}
       </div>`;
     }).join('');
 
@@ -1407,7 +1414,7 @@ function renderHistory() {
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
             <span class="history-date">${date !== '__unknown__' ? fmtDate(date) : 'Unknown Date'}</span>
-            ${week !== null && week !== undefined ? `<span class="week-badge">Wk ${week}</span>` : ''}
+            ${week !== null && week !== undefined ? '<span class="week-badge">Wk ' + week + '</span>' : ''}
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
             <span class="focus-pill ${getFocusClass(focus)}">${focus}</span>
@@ -1429,7 +1436,7 @@ function renderHistory() {
           <div class="ex-detail-header" style="text-align:center">Effort</div>
         </div>
         ${exRows}
-        ${note ? `<div class="note-line" style="margin-top:6px;">📋 ${note}</div>` : ''}
+        ${note ? '<div class="note-line" style="margin-top:6px;">📋 ' + note + '</div>' : ''}
       </div>
     </div>`;
   }).join('');
@@ -1458,11 +1465,14 @@ function renderProgress() {
   renderWeeklyChart();     // sessions per week below
 }
 
-function renderSparklineGrid() {
+// Stores all exercise data for filtering
+let allSparklineData = [];
+
+function renderSparklineGrid(filterEx) {
   const grid = document.getElementById('sparkline-grid');
   if (!grid) return;
 
-  // Group sessions by exercise, only those with numeric weights
+  // Group ALL sessions with numeric weights (include single-session exercises)
   const byExercise = {};
   clientSessions.forEach(s => {
     const w = parseFloat(s.weight);
@@ -1472,47 +1482,71 @@ function renderSparklineGrid() {
     }
   });
 
-  // Sort exercises: most sessions first, then alpha
-  const exercises = Object.entries(byExercise)
-    .filter(([, pts]) => pts.length >= 2)
+  // Sort: most sessions first, then alpha
+  allSparklineData = Object.entries(byExercise)
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+
+  // Populate filter dropdown
+  const sel = document.getElementById('progress-ex-filter');
+  if (sel) {
+    const cur = filterEx || sel.value;
+    sel.innerHTML = '<option value="">All exercises (' + allSparklineData.length + ')</option>' +
+      allSparklineData.map(([name]) => '<option value="' + name.replace(/"/g,'&quot;') + '"' +
+        (name === cur ? ' selected' : '') + '>' + name + '</option>').join('');
+  }
+
+  // Apply filter
+  const filtered = filterEx
+    ? allSparklineData.filter(([name]) => name === filterEx)
+    : allSparklineData;
 
   // Destroy old sparkline charts
   Object.values(sparklineCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
   Object.keys(sparklineCharts).forEach(k => delete sparklineCharts[k]);
 
-  if (!exercises.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📊</div><h3>No Numeric Data Yet</h3><p>Log sessions with weights to see progress charts.</p></div>`;
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📊</div><h3>No Numeric Data Yet</h3><p>Log sessions with weights to see progress charts.</p></div>';
     return;
   }
 
-  grid.innerHTML = exercises.map(([exName, pts], i) => {
-    const sorted = pts.sort((a, b) => a.date.localeCompare(b.date));
+  grid.innerHTML = filtered.map(([exName, pts], i) => {
+    const sorted = pts.slice().sort((a, b) => a.date.localeCompare(b.date));
     const maxW = Math.max(...sorted.map(p => p.weight));
     const lastW = sorted[sorted.length - 1].weight;
     const prevW = sorted.length > 1 ? sorted[sorted.length - 2].weight : lastW;
     const trend = lastW > prevW ? 'up' : lastW < prevW ? 'down' : 'flat';
     const trendLabel = trend === 'up' ? '↑ Progressing' : trend === 'down' ? '↓ Dropped' : '→ Steady';
     const trendClass = trend === 'up' ? 'trend-up' : trend === 'down' ? 'trend-down' : 'trend-flat';
-    const canvasId = `spark-${i}`;
-    return `<div class="sparkline-card" id="sparkcard-${i}" onclick="toggleSparkline(${i})">
-      <div class="sparkline-title">
-        <span>${exName}</span>
-        <span class="sparkline-trend ${trendClass}">${trendLabel}</span>
-      </div>
-      <div class="sparkline-meta">${sorted.length} sessions · PR: <span class="sparkline-pr">${maxW} lbs</span></div>
-      <div class="sparkline-wrap" id="sparkwrap-${i}">
-        <canvas id="${canvasId}"></canvas>
-      </div>
-    </div>`;
+    const canvasId = 'spark-' + i;
+    const sessionLabel = sorted.length === 1 ? '1 session' : sorted.length + ' sessions';
+    return '<div class="sparkline-card" id="sparkcard-' + i + '" onclick="toggleSparkline(' + i + ')">' +
+      '<div class="sparkline-title"><span>' + exName + '</span>' +
+      '<span class="sparkline-trend ' + trendClass + '">' + trendLabel + '</span></div>' +
+      '<div class="sparkline-meta">' + sessionLabel + ' · PR: <span class="sparkline-pr">' + maxW + ' lbs</span></div>' +
+      '<div class="sparkline-wrap" id="sparkwrap-' + i + '">' +
+      (sorted.length === 1
+        ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;">Only 1 session logged</div>'
+        : '<canvas id="' + canvasId + '"></canvas>') +
+      '</div></div>';
   }).join('');
 
-  // Draw all sparklines after DOM is ready
+  // Draw sparklines for exercises with 2+ sessions
   setTimeout(() => {
-    exercises.forEach(([exName, pts], i) => {
-      drawSparkline(`spark-${i}`, pts, false);
+    filtered.forEach(([exName, pts], i) => {
+      if (pts.length >= 2) drawSparkline('spark-' + i, pts, false);
     });
   }, 50);
+}
+
+function filterSparklines() {
+  const sel = document.getElementById('progress-ex-filter');
+  renderSparklineGrid(sel ? sel.value : '');
+}
+
+function clearProgressFilter() {
+  const sel = document.getElementById('progress-ex-filter');
+  if (sel) sel.value = '';
+  renderSparklineGrid('');
 }
 
 function drawSparkline(canvasId, ptsRaw, expanded) {
@@ -1558,7 +1592,7 @@ function toggleSparkline(i) {
   const pts = clientSessions
     .filter(s => s.exercise === exName && s.date && !isNaN(parseFloat(s.weight)) && parseFloat(s.weight) > 0)
     .map(s => ({ date: s.date, weight: parseFloat(s.weight) }));
-  setTimeout(() => drawSparkline(canvasId, pts, isExpanded), 50);
+  if (pts.length >= 2) setTimeout(() => drawSparkline(canvasId, pts, isExpanded), 50);
 }
 
 // Keep renderProgressChart as no-op for compat
@@ -1631,7 +1665,7 @@ function renderManage() {
         <div class="stat-card"><div class="stat-val">${sessionCount}</div><div class="stat-label">Total Entries</div></div>
         <div class="stat-card"><div class="stat-val">${dates.length}</div><div class="stat-label">Session Dates</div></div>
       </div>
-      ${lastDate ? `<div style="font-size:12px;color:var(--muted);margin-top:10px;">Last session: ${fmtDate(lastDate)}</div>` : ''}
+      ${lastDate ? '<div style="font-size:12px;color:var(--muted);margin-top:10px;">Last session: ' + fmtDate(lastDate) + '</div>' : ''}
     </div>
 
     <div class="danger-zone">
