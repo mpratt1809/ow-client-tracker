@@ -307,13 +307,83 @@
     .rpe-medium { background: rgba(232,255,71,0.15); color: var(--accent); }
     .rpe-hard   { background: rgba(255,71,87,0.15);  color: var(--danger); }
 
-    @media (max-width: 600px) {
+    @media (max-width: 640px) {
+      /* Client grid */
       .client-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
-      .ex-input-row, .ex-row-headers { grid-template-columns: 1fr 1fr !important; }
-      .ex-input-row .ex-name-cell { grid-column: 1 / -1; }
-      .ex-row-headers span:not(:first-child):not(:last-child) { display: none; }
-      header { padding: 10px 14px; gap: 10px; }
-      .tab-panel { padding: 14px; }
+
+      /* Header */
+      header { padding: 10px 12px; gap: 8px; }
+      .header-date { font-size: 10px; }
+      .header-pill { font-size: 10px; padding: 3px 8px; }
+
+      /* Tab panel */
+      .tab-panel { padding: 12px; }
+
+      /* Stats grid — 2x2 on mobile */
+      .stats-grid { grid-template-columns: 1fr 1fr !important; }
+
+      /* Exercise log rows — stack as labeled card on mobile */
+      .ex-row-headers { display: none !important; }
+      .ex-input-row {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px;
+        background: var(--surface2);
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+        position: relative;
+      }
+      .ex-input-row .ex-name-wrap { width: 100%; }
+      .ex-input-row .remove-row-btn {
+        position: absolute; top: 8px; right: 8px;
+        width: 26px; height: 26px;
+      }
+      /* Sets/Reps/Weight in a row, RPE/% in a row */
+      .ex-input-row input[id^="ex-sets-"],
+      .ex-input-row input[id^="ex-reps-"],
+      .ex-input-row input[id^="ex-wt-"] {
+        display: inline-block;
+        width: calc(33% - 4px);
+      }
+      .ex-input-row input[id^="ex-rpe-"],
+      .ex-input-row input[id^="ex-pct-"] {
+        display: inline-block;
+        width: calc(50% - 4px);
+      }
+
+      /* Log session date/week/focus row — stack vertically */
+      .form-row { flex-direction: column; gap: 8px; }
+      .form-row > * { max-width: 100% !important; min-width: 0 !important; width: 100% !important; }
+      input[type="date"] { min-width: 0; width: 100%; }
+
+      /* Visit card table — simplified on mobile */
+      .visit-ex-row { 
+        display: flex !important; flex-direction: column !important; 
+        gap: 2px; padding: 8px 0; font-size: 12px;
+      }
+      .visit-ex-row .visit-ex-name { font-weight: 700; font-size: 13px; }
+      .visit-ex-row .visit-ex-val { color: var(--muted); }
+      /* Suggestion badges — full width, wrap text */
+      .suggestion-badge { 
+        font-size: 10px; padding: 3px 8px; 
+        white-space: normal; display: inline-flex; 
+        max-width: 100%; margin-top: 4px;
+      }
+      /* Visit ex row header — hide on mobile */
+      .visit-body > .visit-ex-row:first-child { display: none !important; }
+
+      /* Suggestion badges — inline, smaller */
+      .suggestion-badge { font-size: 10px; padding: 2px 7px; display: inline-flex; max-width: 100%; white-space: normal; }
+
+      /* History detail rows */
+      .ex-detail-row { font-size: 11px; }
+
+      /* Sparkline grid — single column */
+      #sparkline-grid { grid-template-columns: 1fr !important; }
+
+      /* PR list */
+      .pr-weight { font-size: 20px; }
     }
     /* ── FOOTER ── */
     .mp-footer {
@@ -327,20 +397,30 @@
     }
     .mp-rule-line::before, .mp-rule-line::after {
       content: ''; flex: 1; height: 1px;
-      background: rgba(107,117,146,0.18);
+      background: rgba(232,255,71,0.25);
     }
     .mp-rule-text {
-      font-size: 10px; color: rgba(107,117,146,0.38);
-      letter-spacing: 2px; text-transform: uppercase;
-      white-space: nowrap; font-family: var(--font-mono);
+      font-size: 12px; color: var(--accent);
+      letter-spacing: 4px; text-transform: uppercase;
+      white-space: nowrap; font-family: var(--font-head);
+      font-weight: 700;
+    }
+    .mp-rule-line::before, .mp-rule-line::after {
+      background: rgba(232,255,71,0.35);
+    }
+    .mp-watermark {
+      opacity: 1;
+      background: rgba(232,255,71,0.15);
+      border-color: rgba(232,255,71,0.4);
+      color: rgba(232,255,71,0.7);
     }
     .mp-watermark {
       position: fixed; bottom: 14px; right: 18px;
-      width: 28px; height: 28px; border-radius: 50%;
-      background: rgba(232,255,71,0.06);
-      border: 1px solid rgba(232,255,71,0.1);
-      color: rgba(232,255,71,0.2); font-family: var(--font-head);
-      font-size: 12px; letter-spacing: 0.5px; line-height: 1;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(232,255,71,0.12);
+      border: 1.5px solid rgba(232,255,71,0.35);
+      color: rgba(232,255,71,0.6); font-family: var(--font-head);
+      font-size: 13px; letter-spacing: 0.5px; line-height: 1;
       display: flex; align-items: center; justify-content: center;
       pointer-events: none; z-index: 10;
     }
@@ -382,12 +462,10 @@
   </div>
   <div class="client-grid" id="group-grid"></div>
 
-<footer class="mp-footer">
-  <div class="mp-rule-line">
-    <span class="mp-rule-text">built by Meagan Pratt</span>
+
+  <div style="padding:20px 0 8px;text-align:center;">
+    <span style="font-size:10px;color:rgba(107,117,146,0.4);letter-spacing:2px;text-transform:uppercase;font-family:var(--font-mono);">built by Meagan Pratt</span>
   </div>
-  <div class="mp-watermark">MP</div>
-</footer>
 </div>
 
 <!-- APP -->
@@ -541,7 +619,7 @@
   </div>
 
 
-<footer class="mp-footer">
+<footer class="mp-footer" id="app-footer">
   <div class="mp-rule-line">
     <span class="mp-rule-text">built by Meagan Pratt</span>
   </div>
