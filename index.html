@@ -348,13 +348,19 @@
       .ex-input-row input[id^="ex-pct-"] {
         grid-column: 2 / 3;
       }
-      /* Remove button — top right corner */
+      /* Remove button — absolute top-right corner */
       .ex-input-row .remove-row-btn {
-        grid-column: 3 / 4;
-        grid-row: 3;
-        justify-self: end;
-        align-self: center;
-        width: 28px; height: 28px; padding: 0;
+        position: absolute;
+        top: 8px; right: 8px;
+        width: 26px; height: 26px;
+        padding: 0; z-index: 1;
+      }
+      /* RPE and % span 2 cols each (no remove col needed) */
+      .ex-input-row input[id^="ex-rpe-"] {
+        grid-column: 1 / 2;
+      }
+      .ex-input-row input[id^="ex-pct-"] {
+        grid-column: 2 / 4;
       }
 
       /* ── LOG SESSION: date/week/focus ── */
@@ -385,6 +391,9 @@
       .visit-ex-row .visit-ex-val::after { content: "  "; }
       /* Hide the column header row inside visit cards */
       .visit-body > div:first-child .visit-ex-row { display: none !important; }
+      /* Hide column headers on mobile */
+      .visit-col-header { display: none !important; }
+
       /* Suggestion badges — full width below stats */
       .suggestion-badge {
         display: block; width: fit-content;
@@ -1042,12 +1051,10 @@ function renderOverview() {
         '<span style="font-size:11px;color:var(--muted);">' + exNames.length + ' exercises</span></div></div>' +
         '<span class="visit-chev" style="color:var(--muted);font-size:13px;transition:transform 0.2s;">▾</span></div>' +
         '<div class="visit-body' + (isOpen ? ' open' : '') + '">' +
-        '<div class="visit-ex-row" style="border-bottom:1px solid var(--border);margin-bottom:4px;">' +
+        '<div class="visit-ex-row visit-col-header" style="border-bottom:1px solid var(--border);margin-bottom:4px;">' +
         '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Exercise</div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Sets</div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Reps</div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Weight</div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;">Effort / Next</div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Stats</div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Effort / Next</div>' +
         '</div>' + exRowsHTML + (note ? '<div class="note-line" style="margin-top:6px;">📋 ' + note + '</div>' : '') + '</div></div>';
     });
     html += '</div>';
