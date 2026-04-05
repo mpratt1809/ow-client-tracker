@@ -298,7 +298,8 @@
     .visit-focus-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
     .visit-body { display: none; border-top: 1px solid var(--border); padding: 10px 14px; }
     .visit-body.open { display: block; }
-    .visit-ex-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; align-items: center; }
+    .visit-ex-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 6px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: start; font-size: 12px; }
+    .visit-ex-suggestion { grid-column: 1 / -1; padding-bottom: 2px; }
     .visit-ex-row:last-child { border-bottom: none; }
     .visit-ex-name { font-weight: 600; }
     .visit-ex-val { font-family: var(--font-mono); color: var(--muted); text-align: center; }
@@ -319,70 +320,89 @@
       /* Tab panel */
       .tab-panel { padding: 12px; }
 
-      /* Stats grid — 2x2 on mobile */
+      /* Stats grid — 2x2 */
       .stats-grid { grid-template-columns: 1fr 1fr !important; }
 
-      /* Exercise log rows — stack as labeled card on mobile */
+      /* ── LOG SESSION: exercise rows ── */
       .ex-row-headers { display: none !important; }
       .ex-input-row {
-        display: flex !important;
-        flex-direction: column !important;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr 1fr !important;
+        grid-template-rows: auto auto auto !important;
         gap: 6px;
         background: var(--surface2);
         border-radius: 10px;
-        padding: 10px;
+        padding: 10px 10px 10px 10px;
         margin-bottom: 10px;
         position: relative;
       }
-      .ex-input-row .ex-name-wrap { width: 100%; }
-      .ex-input-row .remove-row-btn {
-        position: absolute; top: 8px; right: 8px;
-        width: 26px; height: 26px;
+      /* Exercise name spans full width */
+      .ex-input-row .ex-name-wrap {
+        grid-column: 1 / -1;
       }
-      /* Sets/Reps/Weight in a row, RPE/% in a row */
-      .ex-input-row input[id^="ex-sets-"],
-      .ex-input-row input[id^="ex-reps-"],
-      .ex-input-row input[id^="ex-wt-"] {
-        display: inline-block;
-        width: calc(33% - 4px);
+      /* Sets, Reps, Weight each take 1 column */
+      /* RPE and % each take 1.5 columns — put them side by side */
+      .ex-input-row input[id^="ex-rpe-"] {
+        grid-column: 1 / 2;
       }
-      .ex-input-row input[id^="ex-rpe-"],
       .ex-input-row input[id^="ex-pct-"] {
-        display: inline-block;
-        width: calc(50% - 4px);
+        grid-column: 2 / 3;
+      }
+      /* Remove button — top right corner */
+      .ex-input-row .remove-row-btn {
+        grid-column: 3 / 4;
+        grid-row: 3;
+        justify-self: end;
+        align-self: center;
+        width: 28px; height: 28px; padding: 0;
       }
 
-      /* Log session date/week/focus row — stack vertically */
+      /* ── LOG SESSION: date/week/focus ── */
       .form-row { flex-direction: column; gap: 8px; }
       .form-row > * { max-width: 100% !important; min-width: 0 !important; width: 100% !important; }
-      input[type="date"] { min-width: 0; width: 100%; }
+      input[type="date"], select { min-width: 0; width: 100%; }
 
-      /* Visit card table — simplified on mobile */
-      .visit-ex-row { 
-        display: flex !important; flex-direction: column !important; 
-        gap: 2px; padding: 8px 0; font-size: 12px;
+      /* ── OVERVIEW: visit exercise rows ── */
+      /* Compact 2-line layout: name on top, stats inline below */
+      .visit-ex-row {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 2px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
       }
-      .visit-ex-row .visit-ex-name { font-weight: 700; font-size: 13px; }
-      .visit-ex-row .visit-ex-val { color: var(--muted); }
-      /* Suggestion badges — full width, wrap text */
-      .suggestion-badge { 
-        font-size: 10px; padding: 3px 8px; 
-        white-space: normal; display: inline-flex; 
-        max-width: 100%; margin-top: 4px;
+      .visit-ex-row .visit-ex-name {
+        font-weight: 700; font-size: 13px; color: var(--text);
+        margin-bottom: 2px;
       }
-      /* Visit ex row header — hide on mobile */
-      .visit-body > .visit-ex-row:first-child { display: none !important; }
+      /* Combine sets/reps/weight/effort into one muted line */
+      .visit-ex-row .visit-ex-val {
+        display: inline;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .visit-ex-row .visit-ex-val::after { content: "  "; }
+      /* Hide the column header row inside visit cards */
+      .visit-body > div:first-child .visit-ex-row { display: none !important; }
+      /* Suggestion badges — full width below stats */
+      .suggestion-badge {
+        display: block; width: fit-content;
+        font-size: 10px; padding: 2px 8px;
+        white-space: normal; margin-top: 4px;
+      }
 
-      /* Suggestion badges — inline, smaller */
-      .suggestion-badge { font-size: 10px; padding: 2px 7px; display: inline-flex; max-width: 100%; white-space: normal; }
+      /* ── HISTORY detail rows ── */
+      .ex-detail-row {
+        grid-template-columns: 1fr 1fr !important;
+        font-size: 11px; gap: 4px;
+      }
+      .ex-detail-row .ex-detail-name { grid-column: 1 / -1; }
 
-      /* History detail rows */
-      .ex-detail-row { font-size: 11px; }
-
-      /* Sparkline grid — single column */
+      /* ── PROGRESS ── */
       #sparkline-grid { grid-template-columns: 1fr !important; }
 
-      /* PR list */
+      /* ── PRs ── */
       .pr-weight { font-size: 20px; }
     }
     /* ── FOOTER ── */
@@ -1001,12 +1021,16 @@ function renderOverview() {
         if (vRpe) vEffortParts.push('<span class="rpe-badge ' + vRpeClass + '">RPE ' + vRpe + '</span>');
         if (vPct) vEffortParts.push('<span class="rpe-badge rpe-medium">' + vPct + '%</span>');
         const sug = getSuggestion(exName);
+        const statLine = [
+          (e?.sets ? e.sets + ' sets' : null),
+          (e?.reps ? e.reps + ' reps' : null),
+          (e?.weight ? e.weight + ' lbs' : null),
+        ].filter(Boolean).join(' · ');
         return '<div class="visit-ex-row">' +
           '<div class="visit-ex-name">' + exName + '</div>' +
-          '<div class="visit-ex-val">' + (e?.sets||'—') + ' sets</div>' +
-          '<div class="visit-ex-val">' + (e?.reps||'—') + ' reps</div>' +
-          '<div class="visit-ex-val">' + (e?.weight ? e.weight + ' lbs' : '—') + '</div>' +
-          '<div class="visit-ex-val">' + (vEffortParts.length ? vEffortParts.join(' ') : '—') + (sug ? '<div style="margin-top:3px;">' + sug + '</div>' : '') + '</div>' +
+          '<div class="visit-ex-val visit-stat-line">' + statLine + '</div>' +
+          '<div class="visit-ex-val">' + (vEffortParts.length ? vEffortParts.join(' ') : '') + '</div>' +
+          (sug ? '<div class="visit-ex-suggestion">' + sug + '</div>' : '') +
           '</div>';
       }).join('');
       const isOpen = vi === 0;
