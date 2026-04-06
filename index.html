@@ -556,9 +556,6 @@
   <div class="client-grid" id="group-grid"></div>
 
 
-  <div style="padding:20px 0 8px;text-align:center;">
-    <span style="font-size:10px;color:rgba(107,117,146,0.4);letter-spacing:2px;text-transform:uppercase;font-family:var(--font-mono);">built by Meagan Pratt</span>
-  </div>
 </div>
 
 <!-- APP -->
@@ -589,6 +586,15 @@
   <div id="tab-log" class="tab-panel">
     <div class="section-head">LOG SESSION</div>
     <div class="section-sub">Add a new training session</div>
+    <div id="plan-load-banner" style="display:none;margin-bottom:12px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(232,255,71,0.07);border:1px solid rgba(232,255,71,0.2);border-radius:10px;padding:10px 14px;">
+        <span style="font-size:13px;color:var(--accent);font-weight:700;white-space:nowrap;">📋 Saved Plan</span>
+        <select id="plan-load-select" style="flex:1;min-width:160px;font-size:12px;background:var(--surface2);">
+          <option value="">— select to load —</option>
+        </select>
+        <button class="btn-add-row" onclick="loadSelectedPlan()" style="margin-top:0;white-space:nowrap;background:var(--accent);color:#0d0f14;font-weight:700;">Load ↓</button>
+      </div>
+    </div>
     <div class="card">
       <div class="form-row" style="margin-bottom:12px;">
         <div class="form-group"><label>Date</label><input type="date" id="log-date" /></div>
@@ -1038,7 +1044,9 @@ window.toggleShowArchived = function() {
 async function openClient(client) {
   currentClient = client;
   document.getElementById('client-select').classList.remove('visible');
+  document.getElementById('app').style.display = '';
   document.getElementById('app').className = 'visible';
+  window.scrollTo(0, 0);
   document.getElementById('header-client-name').textContent = client.name;
   document.getElementById('header-date').textContent = displayNow();
   clientSessions = await loadClientSessions(client.name);
@@ -1062,7 +1070,9 @@ function updateHeaderPill() {
 
 window.goBack = function() {
   document.getElementById('app').className = '';
+  document.getElementById('app').style.display = 'none';
   document.getElementById('client-select').classList.add('visible');
+  window.scrollTo(0, 0);
   currentClient = null; clientSessions = [];
   if (progressChart) { progressChart.destroy(); progressChart = null; }
   if (weeklyChart) { weeklyChart.destroy(); weeklyChart = null; }
@@ -1222,7 +1232,7 @@ window.deleteClient = async function() {
 };
 
 // ── LOG SESSION ──
-function initLogForm() {
+async function initLogForm() {
   document.getElementById('log-date').value = todayStr();
   const weeks = clientSessions.map(s => s.week).filter(w => w!==null && w!==undefined).map(Number).filter(n => !isNaN(n));
   const maxWeek = weeks.length ? Math.max(...weeks) : 0;
@@ -1231,6 +1241,29 @@ function initLogForm() {
   document.getElementById('exercise-rows').innerHTML = '';
   exRowCount = 0;
   addExRow();
+
+  // Check for saved plan and show load banner
+  try {
+    const savedPlan = await loadPlan();
+    const banner = document.getElementById('plan-load-banner');
+    const sel = document.getElementById('plan-load-select');
+    if (savedPlan && savedPlan.exercises && savedPlan.exercises.length && banner && sel) {
+      // Populate dropdown with focus + exercise summary
+      const exList = savedPlan.exercises.map(e => e.exercise).slice(0, 3).join(', ');
+      const more = savedPlan.exercises.length > 3 ? ' +' + (savedPlan.exercises.length - 3) + ' more' : '';
+      const label = (savedPlan.focus ? savedPlan.focus + ': ' : '') + exList + more;
+      sel.innerHTML = '<option value="">— select to load —</option>' +
+        '<option value="saved">' + label + '</option>';
+      banner.style.display = 'block';
+      // Store plan for retrieval
+      window._pendingPlan = savedPlan;
+    } else {
+      if (banner) banner.style.display = 'none';
+      window._pendingPlan = null;
+    }
+  } catch(e) {
+    console.warn('Could not load plan:', e);
+  }
 }
 
 window.addExRow = function() {
@@ -1855,41 +1888,51 @@ window.removePlanRow = function(i) {
   document.getElementById('plan-row-'+i)?.remove();
 };
 
-window.loadPlanIntoLog = function() {
-  const plan = getPlanData();
-  if (!plan.exercises.length) return showToast('No exercises in plan');
+window.loadSelectedPlan = function() {
+  const sel = document.getElementById('plan-load-select');
+  if (!sel || sel.value !== 'saved' || !window._pendingPlan) return;
+  applyPlanToLog(window._pendingPlan);
+  // Hide banner after loading
+  document.getElementById('plan-load-banner').style.display = 'none';
+  showToast('✅ Plan loaded!');
+};
 
-  // Switch to log tab and pre-fill
-  window.showTab('log');
-
+function applyPlanToLog(plan) {
+  if (!plan.exercises || !plan.exercises.length) return;
   // Set focus
   if (plan.focus) {
     const focusEl = document.getElementById('log-focus');
     if (focusEl) focusEl.value = plan.focus;
   }
-
-  // Clear existing rows and add plan exercises
+  // Clear and fill exercises
   document.getElementById('exercise-rows').innerHTML = '';
   exRowCount = 0;
-
   plan.exercises.forEach(ex => {
     window.addExRow();
     const id = exRowCount;
-    const nameEl = document.getElementById('ex-name-'+id);
+    const nameEl = document.getElementById('ex-name-' + id);
     if (nameEl) nameEl.value = ex.exercise;
-    const setsEl = document.getElementById('ex-sets-'+id);
-    if (setsEl) setsEl.value = ex.sets;
-    const repsEl = document.getElementById('ex-reps-'+id);
-    if (repsEl) repsEl.value = ex.reps;
-    const wtEl = document.getElementById('ex-wt-'+id);
-    if (wtEl) wtEl.value = ex.weight;
+    const setsEl = document.getElementById('ex-sets-' + id);
+    if (setsEl) setsEl.value = ex.sets || '';
+    const repsEl = document.getElementById('ex-reps-' + id);
+    if (repsEl) repsEl.value = ex.reps || '';
+    const wtEl = document.getElementById('ex-wt-' + id);
+    if (wtEl) wtEl.value = ex.weight || '';
   });
-
-  // Set session notes from plan
+  // Set session notes
   const notesEl = document.getElementById('log-session-notes');
   if (notesEl && plan.notes) notesEl.value = plan.notes;
+}
 
-  showToast('✅ Plan loaded into Log Session!');
+window.loadPlanIntoLog = function() {
+  const plan = getPlanData();
+  if (!plan.exercises.length) return showToast('No exercises in plan');
+  window.showTab('log');
+  // Small delay to let the tab render before filling
+  setTimeout(() => {
+    applyPlanToLog(plan);
+    showToast('✅ Plan loaded into Log Session!');
+  }, 100);
 };
 
 window.showPlanSuggestions = function() {
