@@ -1369,18 +1369,21 @@ window.showExSuggestions = function(id) {
   if (!matches.length) { dropdown.classList.remove('open'); return; }
   const isTyping = !!q;
   const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  dropdown.innerHTML = matches.map(function(item) {
+  const itemsHTML = matches.map(function(item) {
     const name = isTyping ? item.name : item;
     const mine = isTyping ? item.mine : clientSessions.some(s => s.exercise === name);
     const esc = name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const highlight = isTyping ? name.replace(new RegExp('(' + safeQ + ')','gi'),'<mark>$1</mark>') : name;
     return '<div class="ex-sug-item' + (mine?' ex-sug-mine':'') + '" data-name="' + esc + '">' + highlight + (mine?'<span class="ex-sug-tag">this client</span>':'') + '</div>';
   }).join('');
-  // Use event delegation to avoid inline onclick
+  // Set final HTML first, then attach listeners (avoids listener loss from innerHTML reassignment)
+  dropdown.innerHTML = (!isTyping ? '<div class="ex-sug-group-label">Recent &amp; suggested</div>' : '') + itemsHTML;
   dropdown.querySelectorAll('.ex-sug-item').forEach(function(el) {
-    el.addEventListener('mousedown', function() { window.selectExSuggestion(id, this.dataset.name); });
+    el.addEventListener('mousedown', function(e) {
+      e.preventDefault(); // prevent input blur before selection
+      window.selectExSuggestion(id, this.dataset.name);
+    });
   });
-  if (!isTyping) dropdown.innerHTML = '<div class="ex-sug-group-label">Recent &amp; suggested</div>' + dropdown.innerHTML;
   dropdown.classList.add('open');
 };
 
