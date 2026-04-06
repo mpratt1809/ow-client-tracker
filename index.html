@@ -193,10 +193,25 @@
 
     /* ── FOCUS PILLS ── */
     .focus-pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 100px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+    .focus-pill-editable:hover { opacity: 0.8; outline: 1px dashed var(--border); }
     .focus-Arms { background: rgba(71,200,255,0.12); color: var(--accent2); }
     .focus-Legs { background: rgba(232,255,71,0.12); color: var(--accent); }
     .focus-Full { background: rgba(46,213,115,0.12); color: var(--success); }
     .focus-Other { background: rgba(255,71,87,0.1); color: var(--danger); }
+
+    .focus-pill-editable { cursor: pointer; }
+    .focus-pill-editable:hover { opacity: 0.8; }
+    .focus-edit-dropdown {
+      position: fixed; z-index: 1000;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px; min-width: 140px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .focus-edit-option {
+      padding: 7px 12px; border-radius: 6px; font-size: 13px;
+      cursor: pointer; color: var(--text);
+    }
+    .focus-edit-option:hover { background: rgba(255,255,255,0.07); }
 
     /* ── CHARTS ── */
     .chart-wrap { position: relative; height: 210px; margin-top: 10px; }
@@ -246,6 +261,13 @@
     }
     .plan-input:focus { outline: none; border-color: var(--accent); }
     .plan-notes-input { font-size: 11px; }
+    /* On desktop, srw-row and notes-wrap are transparent — grid items flow through */
+    .plan-srw-row { display: contents; }
+    .plan-notes-wrap { display: contents; }
+    .plan-field-label { display: none; } /* labels only show on mobile */
+    /* On desktop, field-wrap is also transparent so inputs flow straight into grid */
+    .plan-field-wrap { display: contents; }
+    .plan-notes-wrap { display: contents; }
 
     @media (max-width: 640px) {
       .plan-ex-header { display: none; }
@@ -279,6 +301,56 @@
       .plan-row .plan-notes-wrap .plan-field-label {
         font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
         text-transform: uppercase; color: var(--muted);
+      }
+    }
+
+    /* ── EXERCISE DETAIL PANEL ── */
+    .ex-input-row { margin-bottom: 8px; }
+    .ex-grid-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 30px;
+      gap: 8px; align-items: center;
+    }
+    .ex-detail-panel {
+      margin-top: 6px; padding: 8px 10px;
+      background: rgba(255,255,255,0.025);
+      border-radius: 8px; border: 1px solid var(--border);
+    }
+    .ex-history-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+    }
+    .ex-history-row {
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;
+      padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+      font-size: 11px;
+    }
+    .ex-history-row:last-child { border-bottom: none; }
+    .ex-history-date { color: var(--muted); min-width: 42px; flex-shrink: 0; }
+    .ex-history-stats { color: var(--text); }
+    .ex-history-effort { color: var(--accent); font-size: 10px; }
+    .ex-history-note { color: var(--muted); font-style: italic; font-size: 10px; width: 100%; }
+    .ex-note-input {
+      width: 100%; margin-top: 8px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 6px 10px; color: var(--text); font-size: 12px;
+      box-sizing: border-box;
+    }
+    .ex-note-input:focus { outline: none; border-color: var(--accent); }
+
+    @media (max-width: 640px) {
+      .ex-grid-row {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr 1fr !important;
+        gap: 6px; position: relative;
+      }
+      .ex-grid-row .ex-name-wrap { grid-column: 1 / -1; }
+      .ex-grid-row input[id^="ex-rpe-"],
+      .ex-grid-row input[id^="ex-pct-"] {
+        display: inline-block; width: calc(50% - 3px); box-sizing: border-box;
+      }
+      .ex-grid-row .remove-row-btn {
+        position: absolute; top: 0; right: 0; width: 26px; height: 26px; padding: 0;
       }
     }
 
@@ -390,42 +462,12 @@
       /* ── LOG SESSION: exercise rows ── */
       .ex-row-headers { display: none !important; }
       .ex-input-row {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr 1fr !important;
-        grid-template-rows: auto auto auto !important;
-        gap: 6px;
         background: var(--surface2);
         border-radius: 10px;
-        padding: 10px 10px 10px 10px;
+        padding: 10px;
         margin-bottom: 10px;
-        position: relative;
       }
-      /* Exercise name spans full width */
-      .ex-input-row .ex-name-wrap {
-        grid-column: 1 / -1;
-      }
-      /* Sets, Reps, Weight each take 1 column */
-      /* RPE and % each take 1.5 columns — put them side by side */
-      .ex-input-row input[id^="ex-rpe-"] {
-        grid-column: 1 / 2;
-      }
-      .ex-input-row input[id^="ex-pct-"] {
-        grid-column: 2 / 3;
-      }
-      /* Remove button — absolute top-right corner */
-      .ex-input-row .remove-row-btn {
-        position: absolute;
-        top: 8px; right: 8px;
-        width: 26px; height: 26px;
-        padding: 0; z-index: 1;
-      }
-      /* RPE and % — equal width side by side */
-      .ex-input-row input[id^="ex-rpe-"],
-      .ex-input-row input[id^="ex-pct-"] {
-        width: calc(50% - 4px);
-        display: inline-block;
-        box-sizing: border-box;
-      }
+      .ex-detail-panel { margin-top: 8px; }
 
       /* ── LOG SESSION: date/week/focus ── */
       .form-row { flex-direction: column; gap: 8px; }
@@ -1272,16 +1314,24 @@ window.addExRow = function() {
   const div = document.createElement('div');
   div.className = 'ex-input-row';
   div.id = 'exrow-' + id;
-  div.innerHTML = '<div class="ex-name-wrap" id="ex-name-wrap-' + id + '">' +
-    '<input type="text" class="ex-name-cell" id="ex-name-' + id + '" placeholder="Exercise name" autocomplete="off" ' +
-    'oninput="showExSuggestions(' + id + ')" onkeydown="exKeyNav(event,' + id + ')" onfocus="showExSuggestions(' + id + ')" />' +
-    '<div class="ex-suggestions" id="ex-suggestions-' + id + '"></div></div>' +
-    '<input type="text" id="ex-sets-' + id + '" placeholder="Sets" />' +
-    '<input type="text" id="ex-reps-' + id + '" placeholder="Reps" />' +
-    '<input type="text" id="ex-wt-' + id + '" placeholder="Weight" />' +
-    '<input type="text" class="ex-effort-input" id="ex-rpe-' + id + '" placeholder="e.g. 7" style="text-align:center" />' +
-    '<input type="text" class="ex-effort-input" id="ex-pct-' + id + '" placeholder="e.g. 75" style="text-align:center" />' +
-    '<button class="remove-row-btn" onclick="removeExRow(' + id + ')">✕</button>';
+  div.innerHTML =
+    '<div class="ex-grid-row">' +
+      '<div class="ex-name-wrap" id="ex-name-wrap-' + id + '">' +
+        '<input type="text" class="ex-name-cell" id="ex-name-' + id + '" placeholder="Exercise name" autocomplete="off" ' +
+        'oninput="showExSuggestions(' + id + ')" onkeydown="exKeyNav(event,' + id + ')" onfocus="showExSuggestions(' + id + ')" />' +
+        '<div class="ex-suggestions" id="ex-suggestions-' + id + '"></div>' +
+      '</div>' +
+      '<input type="text" id="ex-sets-' + id + '" placeholder="Sets" />' +
+      '<input type="text" id="ex-reps-' + id + '" placeholder="Reps" />' +
+      '<input type="text" id="ex-wt-' + id + '" placeholder="Weight" />' +
+      '<input type="text" class="ex-effort-input" id="ex-rpe-' + id + '" placeholder="e.g. 7" style="text-align:center" />' +
+      '<input type="text" class="ex-effort-input" id="ex-pct-' + id + '" placeholder="e.g. 75" style="text-align:center" />' +
+      '<button class="remove-row-btn" onclick="removeExRow(' + id + ')">✕</button>' +
+    '</div>' +
+    '<div class="ex-detail-panel" id="ex-detail-' + id + '" style="display:none;">' +
+      '<div class="ex-history-list" id="ex-history-' + id + '"></div>' +
+      '<input type="text" class="ex-note-input" id="ex-note-' + id + '" placeholder="📝 Exercise note (optional)..." />' +
+    '</div>';
   document.getElementById('exercise-rows').appendChild(div);
   document.addEventListener('click', function handler(e) {
     const wrap = document.getElementById('ex-name-wrap-' + id);
@@ -1341,7 +1391,36 @@ window.selectExSuggestion = function(id, name) {
   if (input) input.value = normalizeExercise(name);
   closeSuggestions(id);
   if (!MASTER_EXERCISES.includes(name)) { MASTER_EXERCISES.push(name); MASTER_EXERCISES.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase())); }
+  window.showExHistory(id);
   document.getElementById('ex-sets-' + id)?.focus();
+};
+
+window.showExHistory = function(id) {
+  const input = document.getElementById('ex-name-' + id);
+  const panel = document.getElementById('ex-detail-' + id);
+  const histList = document.getElementById('ex-history-' + id);
+  if (!input || !panel || !histList) return;
+  const name = input.value.trim();
+  if (!name) { panel.style.display = 'none'; return; }
+  const history = clientSessions
+    .filter(s => s.exercise === name && s.date)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 3);
+  if (!history.length) { panel.style.display = 'none'; return; }
+  histList.innerHTML = '<div class="ex-history-label">Last ' + history.length + ' session' + (history.length > 1 ? 's' : '') + '</div>' +
+    history.map(s => {
+      const parts = [s.sets ? s.sets + ' sets' : null, s.reps ? s.reps + ' reps' : null, s.weight ? s.weight + ' lbs' : null].filter(Boolean).join(' · ');
+      const rpe = s.rpe || (s.effortScale === 'rpe' ? s.effortVal : '');
+      const pct = s.pct || (s.effortScale === 'pct' ? s.effortVal : '');
+      const effort = [rpe ? 'RPE ' + rpe : '', pct ? pct + '%' : ''].filter(Boolean).join(' · ');
+      return '<div class="ex-history-row">' +
+        '<span class="ex-history-date">' + fmtDateShort(s.date) + '</span>' +
+        '<span class="ex-history-stats">' + (parts || '—') + '</span>' +
+        (effort ? '<span class="ex-history-effort">' + effort + '</span>' : '') +
+        (s.exNotes ? '<span class="ex-history-note">📝 ' + s.exNotes + '</span>' : '') +
+      '</div>';
+    }).join('');
+  panel.style.display = 'block';
 };
 
 function closeSuggestions(id) { document.getElementById('ex-suggestions-' + id)?.classList.remove('open'); }
@@ -1374,6 +1453,7 @@ window.saveSession = async function() {
     if (!name) return;
     const rpeVal = document.getElementById('ex-rpe-' + id)?.value.trim() || '';
     const pctVal = document.getElementById('ex-pct-' + id)?.value.trim() || '';
+    const perExNote = document.getElementById('ex-note-' + id)?.value.trim() || '';
     toSave.push({ clientName: currentClient.name, week, date, focus,
       exercise: normalizeExercise(name),
       sets: document.getElementById('ex-sets-' + id)?.value.trim() || '',
@@ -1381,7 +1461,7 @@ window.saveSession = async function() {
       weight: document.getElementById('ex-wt-' + id)?.value.trim() || '',
       rpe: rpeVal, pct: pctVal,
       effortScale: rpeVal?'rpe':pctVal?'pct':'', effortVal: rpeVal||pctVal||'',
-      pr: isPR, sessionNotes, exNotes, createdAt: new Date().toISOString() });
+      pr: isPR, sessionNotes, exNotes: perExNote || exNotes, createdAt: new Date().toISOString() });
   });
   if (!toSave.length) { btn.disabled=false; btn.innerHTML='💾 SAVE SESSION'; return showToast('Add at least one exercise'); }
   try {
@@ -1468,7 +1548,9 @@ window.renderHistory = function() {
       '<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">' +
       '<span class="history-date">' + (date!=='__unknown__'?fmtDate(date):'Unknown Date') + '</span>' +
       (week!==null&&week!==undefined?'<span class="week-badge">Wk '+week+'</span>':'') + '</div>' +
-      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span class="focus-pill ' + getFocusClass(focus) + '">' + focus + '</span>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">' +
+      '<span class="focus-pill ' + getFocusClass(focus) + ' focus-pill-editable" ' +
+      'onclick="openFocusEdit(\'' + date + '\')" title="Click to edit focus">' + (focus || '—') + ' ✎</span>' +
       (hasPR?'<span class="pr-tag">🏆 PR</span>':'') + '</div>' +
       '<div class="history-exlist">' + exNames + '</div></div>' +
       '<div class="history-right"><div class="history-badge">' + rows.length + ' ex</div><div class="history-chevron" id="chev-'+idx+'">▾</div></div></div>' +
@@ -1502,6 +1584,36 @@ window.clearHistFilters = function() {
   document.getElementById('hist-focus-filter').value = '';
   document.getElementById('hist-exercise-filter').value = '';
   window.renderHistory();
+};
+
+window.openFocusEdit = function(date) {
+  const sessionsOnDate = clientSessions.filter(s => s.date === date);
+  const currentFocus = sessionsOnDate[0]?.focus || '';
+  window.editHistoryFocus(date, currentFocus);
+};
+
+window.editHistoryFocus = async function(date, currentFocus) {
+  const focusOptions = ['Arms', 'Legs', 'Full Body', 'Back', 'Chest', 'Shoulders', 'Core', 'Cardio', 'Other'];
+  const newFocus = prompt(
+    'Edit focus area for session on ' + fmtDate(date) + '\nCurrent: ' + (currentFocus || 'None') + '\n\nOptions: ' + focusOptions.join(', '),
+    currentFocus || ''
+  );
+  if (newFocus === null) return; // cancelled
+  const trimmed = newFocus.trim();
+  // Get all session IDs for this date for this client
+  const sessionDocs = clientSessions.filter(s => s.date === date);
+  if (!sessionDocs.length) return;
+  try {
+    const batch = writeBatch(db);
+    sessionDocs.forEach(s => {
+      if (s.id) batch.update(doc(db, 'sessions', s.id), { focus: trimmed });
+    });
+    await batch.commit();
+    // Update local state
+    clientSessions.forEach(s => { if (s.date === date) s.focus = trimmed; });
+    window.renderHistory();
+    showToast('✅ Focus updated for ' + sessionDocs.length + ' entries');
+  } catch(e) { showToast('⚠️ ' + e.message); }
 };
 
 // ── PROGRESS ──
@@ -2003,6 +2115,77 @@ window.addPlanExercise = function() {
   document.getElementById('plan-add-suggestions')?.classList.remove('open');
 };
 
+
+// ── EDIT FOCUS IN HISTORY ──
+window.openFocusEdit = function(date) {
+  // Remove any existing dropdown
+  document.querySelectorAll('.focus-edit-dropdown').forEach(d => d.remove());
+
+  const focusOptions = ['Arms', 'Legs', 'Full Body', 'Back', 'Chest', 'Shoulders', 'Core', 'Cardio', 'Other'];
+  const dropdown = document.createElement('div');
+  dropdown.className = 'focus-edit-dropdown';
+  dropdown.style.position = 'fixed';
+
+  focusOptions.forEach(f => {
+    const opt = document.createElement('div');
+    opt.className = 'focus-edit-option';
+    opt.textContent = f;
+    opt.onclick = async (e) => {
+      e.stopPropagation();
+      dropdown.remove();
+      await updateSessionFocus(date, f);
+    };
+    dropdown.appendChild(opt);
+  });
+
+  // Add cancel
+  const cancel = document.createElement('div');
+  cancel.className = 'focus-edit-option';
+  cancel.style.color = 'var(--muted)';
+  cancel.textContent = '✕ Cancel';
+  cancel.onclick = (e) => { e.stopPropagation(); dropdown.remove(); };
+  dropdown.appendChild(cancel);
+
+  document.body.appendChild(dropdown);
+
+  // Position near click
+  const pill = event.target;
+  const rect = pill.getBoundingClientRect();
+  dropdown.style.top = (rect.bottom + 6) + 'px';
+  dropdown.style.left = rect.left + 'px';
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function handler() {
+      dropdown.remove();
+      document.removeEventListener('click', handler);
+    });
+  }, 10);
+};
+
+async function updateSessionFocus(date, newFocus) {
+  // Find all sessions for this client on this date and update their focus
+  const sessionsOnDate = clientSessions.filter(s => s.date === date);
+  if (!sessionsOnDate.length) return;
+
+  try {
+    const batch = writeBatch(db);
+    sessionsOnDate.forEach(s => {
+      if (s.id) batch.update(doc(db, 'sessions', s.id), { focus: newFocus });
+    });
+    await batch.commit();
+
+    // Update local state
+    clientSessions.forEach(s => { if (s.date === date) s.focus = newFocus; });
+    showToast('✅ Focus updated to ' + newFocus);
+
+    // Re-render history
+    resetHistFilters();
+    window.renderHistory();
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
+  }
+}
 
 // ── MANAGE ──
 function renderManage() {
