@@ -775,7 +775,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where, writeBatch, getDoc, limit }
+import { getFirestore, collection, addDoc, getDocs, getDocsFromServer, doc, setDoc, deleteDoc, updateDoc, query, where, writeBatch, getDoc, limit }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── EXERCISE NAME FIXES ──
@@ -1023,13 +1023,13 @@ async function loadClients() {
   allClients = snap.docs.map(d => ({ id: d.id, ...d.data(), sessionCount: d.data().sessionCount||0, lastDate: d.data().lastDate||'' }));
   allClients.sort((a, b) => a.name.localeCompare(b.name));
   renderClientGrid();
-  const needsCountSync = allClients.some(c => c.sessionCount === 0 && !c.isGroup);
-  if (needsCountSync) loadSessionCounts();
+  // Always resync counts in background to catch stale cached values
+  loadSessionCounts();
 }
 
 async function loadSessionCounts() {
   try {
-    const sessSnap = await getDocs(collection(db, 'sessions'));
+    const sessSnap = await getDocsFromServer(collection(db, 'sessions'));
     const counts = {}, lastDates = {};
     // Count unique session dates per client (not exercise rows)
     const datesByClient = {};
@@ -1099,8 +1099,9 @@ async function openClient(client) {
   initLogForm();
 }
 
-async function loadClientSessions(clientName) {
-  const snap = await getDocs(query(collection(db, 'sessions'), where('clientName', '==', clientName)));
+async function loadClientSessions(clientName, forceServer) {
+  const q = query(collection(db, 'sessions'), where('clientName', '==', clientName));
+  const snap = forceServer ? await getDocsFromServer(q) : await getDocs(q);
   const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   sessions.sort((a, b) => (b.date||'').localeCompare(a.date||''));
   return sessions;
@@ -1479,7 +1480,7 @@ window.saveSession = async function() {
     toSave.forEach(s => batch.set(doc(collection(db,'sessions')), s));
     await batch.commit();
     toSave.forEach(s => { if (s.exercise && !MASTER_EXERCISES.includes(s.exercise)) { MASTER_EXERCISES.push(s.exercise); MASTER_EXERCISES.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase())); } });
-    clientSessions = await loadClientSessions(currentClient.name);
+    clientSessions = await loadClientSessions(currentClient.name, true);
     updateHeaderPill();
     const c = allClients.find(x => x.name === currentClient.name);
     if (c) { const uniqueDates = new Set(clientSessions.map(s => s.date).filter(Boolean)).size;
