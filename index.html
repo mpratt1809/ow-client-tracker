@@ -821,13 +821,22 @@ async function init() {
     step(20, 'Checking existing clients…');
     const clientsSnap = await withTimeout(getDocs(collection(db, 'clients')), 12000, 'clients check');
     const hasClients = !clientsSnap.empty;
-    console.log('[' + (Date.now()-t0) + 'ms] hasClients=' + hasClients + ', count=' + clientsSnap.size);
+    const clientCount = clientsSnap.size;
+    console.log('[' + (Date.now()-t0) + 'ms] hasClients=' + hasClients + ', count=' + clientCount + ', expected=' + SEED_DATA.length);
     if (!hasClients) {
       step(30, 'First run — seeding clients…');
       await seedData();
       step(88, 'Seed complete!');
+    } else if (clientCount < SEED_DATA.length) {
+      // Missing clients — seed any that aren't in Firestore yet
+      step(35, 'Found ' + clientCount + ' of ' + SEED_DATA.length + ' clients — seeding missing…');
+      const existingNames = new Set(clientsSnap.docs.map(d => d.data().name));
+      const missing = SEED_DATA.filter(c => !existingNames.has(c.name));
+      console.log('Missing clients:', missing.map(c => c.name));
+      await seedMissingClients(missing);
+      step(88, 'Missing clients seeded!');
     } else {
-      step(40, clientsSnap.size + ' clients found. Checking sessions…');
+      step(40, clientCount + ' clients found. Checking sessions…');
       const sessSnap = await withTimeout(getDocs(query(collection(db, 'sessions'), limit(1))), 12000, 'sessions check');
       console.log('[' + (Date.now()-t0) + 'ms] hasSessions=' + !sessSnap.empty);
       if (sessSnap.empty) {
@@ -903,6 +912,35 @@ async function seedSessionsOnly(clientsSnap) {
   for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
     const batchNum = Math.floor(i/BATCH_SIZE)+1;
     setLoading(50 + Math.round((batchNum/totalBatches)*35), 'Writing sessions batch ' + batchNum + '/' + totalBatches + '…');
+    const batch = writeBatch(db);
+    allOps.slice(i, i+BATCH_SIZE).forEach(data => batch.set(doc(collection(db, 'sessions')), data));
+    await batch.commit();
+  }
+}
+
+async function seedMissingClients(missingClients) {
+  const now = new Date().toISOString();
+  const clientBatch = writeBatch(db);
+  for (const c of missingClients) {
+    clientBatch.set(doc(collection(db, 'clients')), {
+      name: c.name, goals: c.goals || '', isGroup: c.isGroup || false,
+      isArchived: false, defaultFocus: '', pronouns: '', createdAt: now,
+    });
+  }
+  await clientBatch.commit();
+  // Seed their sessions
+  const allOps = [];
+  for (const c of missingClients) {
+    for (const s of c.sessions) {
+      allOps.push({ clientName: c.name, week: s.week||null, date: s.date||'', focus: s.focus||'',
+        exercise: s.exercise||'', sets: s.sets||'', reps: s.reps||'', weight: s.weight||'',
+        pr: s.pr||false, sessionNotes: s.sessionNotes||'', exNotes: s.exNotes||'',
+        rpe: '', pct: '', effortScale: '', effortVal: '', seeded: true, createdAt: now });
+    }
+  }
+  if (!allOps.length) return;
+  const BATCH_SIZE = 499;
+  for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
     const batch = writeBatch(db);
     allOps.slice(i, i+BATCH_SIZE).forEach(data => batch.set(doc(collection(db, 'sessions')), data));
     await batch.commit();
