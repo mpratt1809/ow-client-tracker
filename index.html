@@ -354,6 +354,26 @@
       }
     }
 
+    .ex-name-editable {
+      cursor: pointer;
+      border-bottom: 1px dashed transparent;
+      padding-bottom: 1px;
+      transition: border-color 0.15s;
+    }
+    .ex-name-editable:hover { border-bottom-color: var(--muted); }
+    .ex-name-editing {
+      background: var(--surface2);
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      padding: 2px 7px;
+      font-size: inherit;
+      font-family: inherit;
+      font-weight: inherit;
+      color: var(--text);
+      outline: none;
+      min-width: 120px;
+    }
+
     /* ── ARCHIVE / DANGER ZONE ── */
     .danger-zone { margin-top: 28px; padding: 16px; border: 1px solid rgba(255,71,87,0.2); border-radius: var(--radius); background: rgba(255,71,87,0.04); }
     .danger-zone-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--danger); margin-bottom: 12px; }
@@ -1549,7 +1569,15 @@ window.renderHistory = function() {
       const effortHTML = effortParts.length ? effortParts.join(' ') : '<span style="color:var(--muted)">—</span>';
       const sug = getSuggestion(exName);
       return '<div class="ex-detail-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">' +
-        '<div class="ex-detail-name">' + exName + (e?.pr?'<span class="pr-tag">🏆 PR</span>':'') + (sug?'<div style="margin-top:3px;">'+sug+'</div>':'') + '</div>' +
+        '<div class="ex-detail-name">' +
+        '<span class="ex-name-editable" ' +
+        'title="Double-click to edit" ' +
+        'ondblclick="startEditExName(this,\'' + (e?.id||'') + '\')">' +
+        exName +
+        '</span>' +
+        (e?.pr?'<span class="pr-tag">🏆 PR</span>':'') +
+        (sug?'<div style="margin-top:3px;">'+sug+'</div>':'') +
+        '</div>' +
         '<div class="ex-detail-val">' + (e?.sets||'—') + '</div>' +
         '<div class="ex-detail-val">' + (e?.reps||'—') + '</div>' +
         '<div class="ex-detail-val">' + (e?.weight||'—') + '</div>' +
@@ -2151,6 +2179,48 @@ window.addPlanExercise = function() {
   document.getElementById('plan-add-suggestions')?.classList.remove('open');
 };
 
+
+// ── EDIT EXERCISE NAME IN HISTORY ──
+window.startEditExName = function(span, sessionId) {
+  if (!sessionId) return showToast('Cannot edit — session ID missing');
+  const original = span.textContent.trim();
+
+  // Replace span with input
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = original;
+  input.className = 'ex-name-editing';
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+
+  async function save() {
+    const newName = input.value.trim();
+    if (!newName || newName === original) {
+      // Restore original span
+      input.replaceWith(span);
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'sessions', sessionId), { exercise: newName });
+      // Update local state
+      const s = clientSessions.find(x => x.id === sessionId);
+      if (s) s.exercise = newName;
+      span.textContent = newName;
+      input.replaceWith(span);
+      showToast('✅ Exercise name updated');
+    } catch(e) {
+      input.replaceWith(span);
+      showToast('⚠️ ' + e.message);
+    }
+  }
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = original; input.blur(); }
+  });
+};
 
 // ── EDIT FOCUS IN HISTORY ──
 window.openFocusEdit = function(date) {
