@@ -159,9 +159,9 @@
     .form-group { margin-bottom: 12px; }
 
     /* ── EXERCISE INPUT ROWS ── */
-    .ex-row-headers { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap: 8px; margin-bottom: 4px; }
+    .ex-row-headers { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 30px; gap: 8px; margin-bottom: 4px; }
     .ex-row-headers span { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
-    .ex-input-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap: 8px; align-items: center; margin-bottom: 7px; animation: slideIn 0.2s ease; }
+    .ex-input-row { display: block; margin-bottom: 8px; animation: slideIn 0.2s ease; }
     @keyframes slideIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
     .ex-input-row input { padding: 8px 10px; font-size: 12px; }
     .remove-row-btn { width: 30px; height: 34px; border-radius: 6px; border: 1.5px solid var(--border); background: none; color: var(--danger); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
@@ -403,9 +403,7 @@
     /* ── EFFORT TOGGLE ── */
     .effort-toggle-btn { padding: 5px 13px; border-radius: 100px; border: 1.5px solid var(--border); background: none; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; font-family: var(--font-body); }
     .effort-toggle-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.1); }
-    /* ── UPDATED EX ROW WITH RPE + % MAX ── */
-    .ex-row-headers { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 30px !important; }
-    .ex-input-row { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 30px !important; }
+
     /* ── SPARKLINE CARDS ── */
     .sparkline-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.2s; }
     .sparkline-card:hover { border-color: var(--accent2); }
@@ -669,7 +667,7 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Exercise Notes</label>
+          <label>General Exercise Notes</label>
           <textarea id="log-ex-notes" placeholder="Notes specific to any exercise…" style="min-height:46px;"></textarea>
         </div>
         <div class="form-group">
