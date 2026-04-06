@@ -1031,11 +1031,15 @@ async function loadSessionCounts() {
   try {
     const sessSnap = await getDocs(collection(db, 'sessions'));
     const counts = {}, lastDates = {};
+    // Count unique session dates per client (not exercise rows)
+    const datesByClient = {};
     sessSnap.docs.forEach(d => {
       const s = d.data(); const n = s.clientName;
-      counts[n] = (counts[n]||0) + 1;
+      if (!datesByClient[n]) datesByClient[n] = new Set();
+      if (s.date) datesByClient[n].add(s.date);
       if (s.date && (!lastDates[n] || s.date > lastDates[n])) lastDates[n] = s.date;
     });
+    Object.entries(datesByClient).forEach(([n, dates]) => { counts[n] = dates.size; });
     allClients.forEach(c => { c.sessionCount = counts[c.name]||0; c.lastDate = lastDates[c.name]||c.lastDate||''; });
     renderClientGrid();
     const batch = writeBatch(db);
@@ -1126,6 +1130,7 @@ window.showTab = function(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (name === 'overview') renderOverview();
+  if (name === 'log') refreshPlanBanner();
   if (name === 'history') { resetHistFilters(); renderHistory(); }
   if (name === 'progress') renderProgress();
   if (name === 'prs') renderPRs();
@@ -1316,7 +1321,7 @@ window.addExRow = function() {
     '<div class="ex-grid-row">' +
       '<div class="ex-name-wrap" id="ex-name-wrap-' + id + '">' +
         '<input type="text" class="ex-name-cell" id="ex-name-' + id + '" placeholder="Exercise name" autocomplete="off" ' +
-        'oninput="showExSuggestions(' + id + ')" onkeydown="exKeyNav(event,' + id + ')" onfocus="showExSuggestions(' + id + ')" />' +
+        'oninput="showExSuggestions(' + id + ')" onkeydown="exKeyNav(event,' + id + ')" onfocus="showExSuggestions(' + id + ')" onblur="setTimeout(()=>showExHistory(' + id + '),150)" />' +
         '<div class="ex-suggestions" id="ex-suggestions-' + id + '"></div>' +
       '</div>' +
       '<input type="text" id="ex-sets-' + id + '" placeholder="Sets" />' +
@@ -1403,24 +1408,28 @@ window.showExHistory = function(id) {
   if (!input || !panel || !histList) return;
   const name = input.value.trim();
   if (!name) { panel.style.display = 'none'; return; }
+  // Always show the panel (note field) — history section only if data exists
   const history = clientSessions
     .filter(s => s.exercise === name && s.date)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 3);
-  if (!history.length) { panel.style.display = 'none'; return; }
-  histList.innerHTML = '<div class="ex-history-label">Last ' + history.length + ' session' + (history.length > 1 ? 's' : '') + '</div>' +
-    history.map(s => {
-      const parts = [s.sets ? s.sets + ' sets' : null, s.reps ? s.reps + ' reps' : null, s.weight ? s.weight + ' lbs' : null].filter(Boolean).join(' · ');
-      const rpe = s.rpe || (s.effortScale === 'rpe' ? s.effortVal : '');
-      const pct = s.pct || (s.effortScale === 'pct' ? s.effortVal : '');
-      const effort = [rpe ? 'RPE ' + rpe : '', pct ? pct + '%' : ''].filter(Boolean).join(' · ');
-      return '<div class="ex-history-row">' +
-        '<span class="ex-history-date">' + fmtDateShort(s.date) + '</span>' +
-        '<span class="ex-history-stats">' + (parts || '—') + '</span>' +
-        (effort ? '<span class="ex-history-effort">' + effort + '</span>' : '') +
-        (s.exNotes ? '<span class="ex-history-note">📝 ' + s.exNotes + '</span>' : '') +
-      '</div>';
-    }).join('');
+  if (history.length) {
+    histList.innerHTML = '<div class="ex-history-label">Last ' + history.length + ' session' + (history.length > 1 ? 's' : '') + '</div>' +
+      history.map(s => {
+        const parts = [s.sets ? s.sets + ' sets' : null, s.reps ? s.reps + ' reps' : null, s.weight ? s.weight + ' lbs' : null].filter(Boolean).join(' · ');
+        const rpe = s.rpe || (s.effortScale === 'rpe' ? s.effortVal : '');
+        const pct = s.pct || (s.effortScale === 'pct' ? s.effortVal : '');
+        const effort = [rpe ? 'RPE ' + rpe : '', pct ? pct + '%' : ''].filter(Boolean).join(' · ');
+        return '<div class="ex-history-row">' +
+          '<span class="ex-history-date">' + fmtDateShort(s.date) + '</span>' +
+          '<span class="ex-history-stats">' + (parts || '—') + '</span>' +
+          (effort ? '<span class="ex-history-effort">' + effort + '</span>' : '') +
+          (s.exNotes ? '<span class="ex-history-note">📝 ' + s.exNotes + '</span>' : '') +
+        '</div>';
+      }).join('');
+  } else {
+    histList.innerHTML = '<div class="ex-history-label" style="color:var(--muted);font-style:italic;">No history yet for this exercise</div>';
+  }
   panel.style.display = 'block';
 };
 
@@ -1473,7 +1482,8 @@ window.saveSession = async function() {
     clientSessions = await loadClientSessions(currentClient.name);
     updateHeaderPill();
     const c = allClients.find(x => x.name === currentClient.name);
-    if (c) { c.sessionCount = clientSessions.length; c.lastDate = date; updateDoc(doc(db,'clients',currentClient.id),{sessionCount:clientSessions.length,lastDate:date}).catch(()=>{}); }
+    if (c) { const uniqueDates = new Set(clientSessions.map(s => s.date).filter(Boolean)).size;
+      c.sessionCount = uniqueDates; c.lastDate = date; updateDoc(doc(db,'clients',currentClient.id),{sessionCount:uniqueDates,lastDate:date}).catch(()=>{}); }
     initLogForm();
     document.getElementById('log-session-notes').value = '';
     document.getElementById('log-ex-notes').value = '';
@@ -1505,7 +1515,8 @@ function resetHistFilters() {
 
 window.renderHistory = function() {
   if (!currentClient) return;
-  document.getElementById('history-sub').textContent = currentClient.name + ' · ' + clientSessions.length + ' total entries';
+  const uniqueSessionDates = new Set(clientSessions.map(s => s.date).filter(Boolean)).size;
+  document.getElementById('history-sub').textContent = currentClient.name + ' · ' + uniqueSessionDates + ' session' + (uniqueSessionDates !== 1 ? 's' : '') + ' · ' + clientSessions.length + ' total entries';
   const wf = document.getElementById('hist-week-filter').value;
   const ff = document.getElementById('hist-focus-filter').value;
   const ef = document.getElementById('hist-exercise-filter').value;
@@ -1554,8 +1565,8 @@ window.renderHistory = function() {
       'onclick="openFocusEdit(\'' + date + '\')" title="Click to edit focus">' + (focus || '—') + ' ✎</span>' +
       (hasPR?'<span class="pr-tag">🏆 PR</span>':'') + '</div>' +
       '<div class="history-exlist">' + exNames + '</div></div>' +
-      '<div class="history-right"><div class="history-badge">' + rows.length + ' ex</div><div class="history-chevron" id="chev-'+idx+'">▾</div></div></div>' +
-      '<div class="history-detail" id="hd-' + idx + '">' +
+      '<div class="history-right"><div class="history-badge">' + rows.length + ' ex</div><div class="history-chevron" id="chev-'+idx+'"' + (date === todayStr() ? ' style="transform:rotate(180deg)"' : '') + '>▾</div></div></div>' +
+      '<div class="history-detail' + (date === todayStr() ? ' open' : '') + '" id="hd-' + idx + '">' +
       '<div class="ex-detail-row" style="margin-bottom:5px;grid-template-columns:2fr 1fr 1fr 1fr 1fr;">' +
       '<div class="ex-detail-header">Exercise</div><div class="ex-detail-header" style="text-align:center">Sets</div>' +
       '<div class="ex-detail-header" style="text-align:center">Reps</div><div class="ex-detail-header" style="text-align:center">Weight</div>' +
@@ -1989,11 +2000,34 @@ window.onPlanFocusChange = function(newFocus) {
   }).join('');
 };
 
+async function refreshPlanBanner() {
+  try {
+    const savedPlan = await loadPlan();
+    const banner = document.getElementById('plan-load-banner');
+    const sel = document.getElementById('plan-load-select');
+    if (!banner || !sel) return;
+    if (savedPlan && savedPlan.exercises && savedPlan.exercises.length) {
+      const exList = savedPlan.exercises.map(e => e.exercise).slice(0, 3).join(', ');
+      const more = savedPlan.exercises.length > 3 ? ' +' + (savedPlan.exercises.length - 3) + ' more' : '';
+      const label = (savedPlan.focus ? savedPlan.focus + ': ' : '') + exList + more;
+      sel.innerHTML = '<option value="">— select to load —</option>' +
+        '<option value="saved">' + label + '</option>';
+      banner.style.display = 'block';
+      window._pendingPlan = savedPlan;
+    } else {
+      banner.style.display = 'none';
+      window._pendingPlan = null;
+    }
+  } catch(e) { console.warn('refreshPlanBanner:', e); }
+}
+
 window.savePlanToFirestore = async function() {
   const plan = getPlanData();
   try {
     await savePlan(plan);
     showToast('✅ Plan saved!');
+    // Refresh banner so Log Session tab shows it immediately
+    await refreshPlanBanner();
   } catch(e) { showToast('⚠️ ' + e.message); }
 };
 
