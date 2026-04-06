@@ -251,11 +251,35 @@
       .plan-ex-header { display: none; }
       .plan-row {
         display: flex !important; flex-direction: column !important;
-        gap: 6px; background: var(--surface2);
-        border-radius: 10px; padding: 10px;
+        gap: 8px; background: var(--surface2);
+        border-radius: 10px; padding: 12px 12px 10px;
         margin-bottom: 8px; border-bottom: none; position: relative;
       }
       .plan-row .remove-row-btn { position: absolute; top: 8px; right: 8px; }
+      /* Sets/Reps/Weight in a labeled 3-col row */
+      .plan-row .plan-srw-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+      }
+      .plan-row .plan-srw-row .plan-field-wrap {
+        display: flex; flex-direction: column; gap: 3px;
+      }
+      .plan-row .plan-srw-row .plan-field-label {
+        font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+        text-transform: uppercase; color: var(--muted);
+      }
+      .plan-row .plan-srw-row .plan-input {
+        text-align: center;
+      }
+      /* Notes full width */
+      .plan-row .plan-notes-wrap {
+        display: flex; flex-direction: column; gap: 3px;
+      }
+      .plan-row .plan-notes-wrap .plan-field-label {
+        font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+        text-transform: uppercase; color: var(--muted);
+      }
     }
 
     /* ── ARCHIVE / DANGER ZONE ── */
@@ -1567,14 +1591,29 @@ async function savePlan(planData) {
   await setDoc(ref, { ...planData, updatedAt: new Date().toISOString() });
 }
 
-function buildPlanSuggestions() {
-  // Get last session date and its exercises
-  const dates = [...new Set(clientSessions.map(s => s.date).filter(Boolean))].sort();
-  const lastDate = dates[dates.length - 1];
-  if (!lastDate) return { focus: '', exercises: [] };
+function buildPlanSuggestions(focusFilter) {
+  // If focusFilter provided, find last session with that focus
+  // Otherwise use the most recent session regardless of focus
+  let targetRows, focus;
 
-  const lastSessionRows = clientSessions.filter(s => s.date === lastDate);
-  const focus = lastSessionRows[0]?.focus || '';
+  if (focusFilter) {
+    // Find most recent session date with this focus area
+    const focusDates = [...new Set(
+      clientSessions.filter(s => s.focus === focusFilter && s.date).map(s => s.date)
+    )].sort();
+    const lastFocusDate = focusDates[focusDates.length - 1];
+    if (!lastFocusDate) return { focus: focusFilter, exercises: [] };
+    targetRows = clientSessions.filter(s => s.date === lastFocusDate);
+    focus = focusFilter;
+  } else {
+    const dates = [...new Set(clientSessions.map(s => s.date).filter(Boolean))].sort();
+    const lastDate = dates[dates.length - 1];
+    if (!lastDate) return { focus: '', exercises: [] };
+    targetRows = clientSessions.filter(s => s.date === lastDate);
+    focus = targetRows[0]?.focus || '';
+  }
+
+  const lastSessionRows = targetRows;
 
   const suggested = [...new Set(lastSessionRows.map(r => r.exercise))].map(exName => {
     const history = clientSessions
@@ -1663,13 +1702,25 @@ async function renderPlan() {
 
   let html = '<div class="card">';
   html += '<div class="card-title">🎯 Focus Area</div>';
-  html += '<select id="plan-focus" style="max-width:220px;margin-bottom:4px;">' +
+  html += '<select id="plan-focus" style="max-width:220px;margin-bottom:4px;" onchange="onPlanFocusChange(this.value)">' +
     ['Arms','Legs','Full Body','Back','Chest','Shoulders','Core','Cardio'].map(f =>
       '<option value="'+f+'"'+(plan.focus===f?' selected':'')+'>'+f+'</option>'
     ).join('') + '</select>';
+
   html += '</div>';
 
+  // Find last date for initial focus
+  const initFocusDates = [...new Set(
+    clientSessions.filter(s => s.focus === plan.focus && s.date).map(s => s.date)
+  )].sort();
+  const initLastFocusDate = initFocusDates[initFocusDates.length - 1];
+
   html += '<div class="card"><div class="card-title">💪 Planned Exercises</div>';
+  if (initLastFocusDate) {
+    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;" id="plan-focus-label">Based on last ' + plan.focus + ' session: ' + fmtDate(initLastFocusDate) + '</div>';
+  } else {
+    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;" id="plan-focus-label"></div>';
+  }
   html += '<div class="plan-ex-header"><span>Exercise</span><span>Sets</span><span>Reps</span><span>Weight</span><span>Notes</span><span></span></div>';
   html += '<div id="plan-rows">';
 
@@ -1681,10 +1732,12 @@ async function renderPlan() {
         (ex.suggestion ? '<span class="suggestion-badge '+sc+' plan-sug-badge">'+ex.suggestion+'</span>' : '') +
         (ex.lastWeight ? '<div class="plan-last-val">Last: '+ex.lastSets+' × '+ex.lastReps+' @ '+ex.lastWeight+' lbs</div>' : '') +
       '</div>' +
-      '<input type="text" class="plan-input" id="plan-sets-'+i+'" value="'+ex.sets+'" placeholder="Sets" />' +
-      '<input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+ex.reps+'" placeholder="Reps" />' +
-      '<input type="text" class="plan-input" id="plan-wt-'+i+'" value="'+ex.weight+'" placeholder="Weight" />' +
-      '<input type="text" class="plan-input plan-notes-input" id="plan-notes-'+i+'" value="'+(ex.notes||'')+'" placeholder="Notes…" />' +
+      '<div class="plan-srw-row">' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Sets</span><input type="text" class="plan-input" id="plan-sets-'+i+'" value="'+ex.sets+'" placeholder="—" /></div>' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Reps</span><input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+ex.reps+'" placeholder="—" /></div>' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Weight</span><input type="text" class="plan-input" id="plan-wt-'+i+'" value="'+ex.weight+'" placeholder="—" /></div>' +
+      '</div>' +
+      '<div class="plan-notes-wrap"><span class="plan-field-label">Notes</span><input type="text" class="plan-input plan-notes-input" id="plan-notes-'+i+'" value="'+(ex.notes||'')+'" placeholder="Cues, reminders…" /></div>' +
       '<button class="remove-row-btn" onclick="removePlanRow('+i+')" style="flex-shrink:0;">✕</button>' +
     '</div>';
   });
@@ -1746,6 +1799,49 @@ function getPlanData() {
     notes: document.getElementById('plan-session-notes')?.value || '',
   };
 }
+
+window.onPlanFocusChange = function(newFocus) {
+  const suggestions = buildPlanSuggestions(newFocus);
+  const planRows = document.getElementById('plan-rows');
+  const label = document.getElementById('plan-focus-label');
+  if (!planRows) return;
+
+  if (!suggestions.exercises.length) {
+    planRows.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;">No sessions logged for this focus area yet.</div>';
+    if (label) label.textContent = '';
+    return;
+  }
+
+  // Find the last date for this focus to show context
+  const focusDates = [...new Set(
+    clientSessions.filter(s => s.focus === newFocus && s.date).map(s => s.date)
+  )].sort();
+  const lastFocusDate = focusDates[focusDates.length - 1];
+  if (label && lastFocusDate) {
+    label.textContent = 'Based on last ' + newFocus + ' session: ' + fmtDate(lastFocusDate);
+  } else if (label) {
+    label.textContent = '';
+  }
+
+  const sugClass = { progress: 'sug-progress', hold: 'sug-hold', deload: 'sug-deload', new: 'sug-new' };
+  planRows.innerHTML = suggestions.exercises.map((ex, i) => {
+    const sc = sugClass[ex.suggestionType] || 'sug-hold';
+    return '<div class="plan-row" id="plan-row-'+i+'">' +
+      '<div class="plan-ex-name-cell">' +
+        '<div class="plan-ex-name">'+ex.exercise+'</div>' +
+        (ex.suggestion ? '<span class="suggestion-badge '+sc+' plan-sug-badge">'+ex.suggestion+'</span>' : '') +
+        (ex.lastWeight ? '<div class="plan-last-val">Last: '+ex.lastSets+' × '+ex.lastReps+' @ '+ex.lastWeight+' lbs</div>' : '') +
+      '</div>' +
+      '<div class="plan-srw-row">' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Sets</span><input type="text" class="plan-input" id="plan-sets-'+i+'" value="'+ex.sets+'" placeholder="—" /></div>' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Reps</span><input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+ex.reps+'" placeholder="—" /></div>' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Weight</span><input type="text" class="plan-input" id="plan-wt-'+i+'" value="'+ex.weight+'" placeholder="—" /></div>' +
+      '</div>' +
+      '<div class="plan-notes-wrap"><span class="plan-field-label">Notes</span><input type="text" class="plan-input plan-notes-input" id="plan-notes-'+i+'" value="" placeholder="Cues, reminders…" /></div>' +
+      '<button class="remove-row-btn" onclick="removePlanRow('+i+')" style="flex-shrink:0;">✕</button>' +
+    '</div>';
+  }).join('');
+};
 
 window.savePlanToFirestore = async function() {
   const plan = getPlanData();
@@ -1851,10 +1947,12 @@ window.addPlanExercise = function() {
       '<div class="plan-ex-name">'+name+'</div>' +
       (last ? '<div class="plan-last-val">Last: '+(last.sets||'?')+' × '+(last.reps||'?')+' @ '+(last.weight||'?')+' lbs</div>' : '') +
     '</div>' +
-    '<input type="text" class="plan-input" id="plan-sets-'+i+'" value="'+(last?.sets||'')+'" placeholder="Sets" />' +
-    '<input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+(last?.reps||'')+'" placeholder="Reps" />' +
-    '<input type="text" class="plan-input" id="plan-wt-'+i+'" value="'+(last?.weight||'')+'" placeholder="Weight" />' +
-    '<input type="text" class="plan-input plan-notes-input" id="plan-notes-'+i+'" value="" placeholder="Notes…" />' +
+    '<div class="plan-srw-row">' +
+      '<div class="plan-field-wrap"><span class="plan-field-label">Sets</span><input type="text" class="plan-input" id="plan-sets-'+i+'" value="'+(last?.sets||'')+'" placeholder="—" /></div>' +
+      '<div class="plan-field-wrap"><span class="plan-field-label">Reps</span><input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+(last?.reps||'')+'" placeholder="—" /></div>' +
+      '<div class="plan-field-wrap"><span class="plan-field-label">Weight</span><input type="text" class="plan-input" id="plan-wt-'+i+'" value="'+(last?.weight||'')+'" placeholder="—" /></div>' +
+    '</div>' +
+    '<div class="plan-notes-wrap"><span class="plan-field-label">Notes</span><input type="text" class="plan-input plan-notes-input" id="plan-notes-'+i+'" value="" placeholder="Cues, reminders…" /></div>' +
     '<button class="remove-row-btn" onclick="removePlanRow('+i+')" style="flex-shrink:0;">✕</button>';
 
   planRows.appendChild(div);
