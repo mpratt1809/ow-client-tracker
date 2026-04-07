@@ -314,33 +314,22 @@
       border: 1px solid var(--border);
       animation: slideIn 0.2s ease;
     }
-    /* Name row: [exercise name input ──────] [RPE] [✕] */
+    /* Name row: [exercise name input ──────────────] [✕] */
     .ex-name-row {
       display: grid;
-      grid-template-columns: 1fr 56px 32px;
+      grid-template-columns: 1fr 32px;
       gap: 8px;
       align-items: center;
       margin-bottom: 10px;
     }
     .ex-name-row .ex-name-wrap { position: relative; }
     .ex-name-cell { width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 600; }
-    .ex-rpe-global {
-      width: 100%;
-      text-align: center;
-      font-size: 12px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 7px 4px;
-      color: var(--text);
-      box-sizing: border-box;
-    }
-    .ex-rpe-global::placeholder { font-size: 10px; color: var(--muted); }
-    /* Set column headers */
+
+    /* Set column headers — SET | WEIGHT | REPS | RPE | %MAX | ✓ */
     .ex-set-headers {
       display: grid;
-      grid-template-columns: 32px 1fr 1fr 32px;
-      gap: 6px;
+      grid-template-columns: 30px 1fr 1fr 48px 48px 30px;
+      gap: 5px;
       margin-bottom: 4px;
       padding: 0 2px;
     }
@@ -352,11 +341,12 @@
     /* Individual set rows */
     .ex-set-row {
       display: grid;
-      grid-template-columns: 32px 1fr 1fr 32px;
-      gap: 6px;
+      grid-template-columns: 30px 1fr 1fr 48px 48px 30px;
+      gap: 5px;
       align-items: center;
       margin-bottom: 6px;
     }
+    .ex-set-small { font-size: 11px !important; padding: 7px 4px !important; }
     .ex-set-label {
       font-size: 11px; font-weight: 700; color: var(--muted);
       text-align: center; background: var(--surface);
@@ -408,7 +398,7 @@
     .ex-history-stats { color: var(--text); }
     .ex-history-effort { color: var(--accent); font-size: 10px; }
     .ex-history-note { color: var(--muted); font-style: italic; font-size: 10px; display: block; margin-top: 2px; }
-    .ex-note-input { width: 100%; margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); font-size: 12px; box-sizing: border-box; }
+    .ex-note-input { width: 100%; margin-top: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 12px; box-sizing: border-box; }
     .ex-note-input:focus { outline: none; border-color: var(--accent); }
 
     @media (max-width: 640px) {
@@ -521,9 +511,10 @@
 
       /* ── LOG SESSION: exercise rows — card-based, mobile tweaks ── */
       .ex-row-headers { display: none !important; }
-      .ex-name-row { grid-template-columns: 1fr 48px 28px; gap: 6px; }
-      .ex-set-headers { grid-template-columns: 28px 1fr 1fr 28px; }
-      .ex-set-row { grid-template-columns: 28px 1fr 1fr 28px; }
+      .ex-name-row { grid-template-columns: 1fr 28px; gap: 6px; }
+      .ex-set-headers { grid-template-columns: 26px 1fr 1fr 40px 40px 26px; gap: 4px; }
+      .ex-set-row { grid-template-columns: 26px 1fr 1fr 40px 40px 26px; gap: 4px; }
+      .ex-set-small { font-size: 10px !important; padding: 7px 2px !important; }
 
       /* ── LOG SESSION: date/week/focus ── */
       .form-row { flex-direction: column; gap: 8px; }
@@ -718,15 +709,9 @@
         <label>Session Notes</label>
         <textarea id="log-session-notes" placeholder="Overall observations, client feedback, form cues…"></textarea>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>General Exercise Notes</label>
-          <textarea id="log-ex-notes" placeholder="Notes specific to any exercise…" style="min-height:46px;"></textarea>
-        </div>
-        <div class="form-group">
-          <label>PR Achieved?</label>
-          <select id="log-pr"><option value="false">No</option><option value="true">Yes — PR! 🏆</option></select>
-        </div>
+      <div class="form-group">
+        <label>PR Achieved?</label>
+        <select id="log-pr"><option value="false">No</option><option value="true">Yes — PR! 🏆</option></select>
       </div>
       <button class="btn-primary" id="save-btn" onclick="saveSession()">💾 SAVE SESSION</button>
     </div>
@@ -1424,18 +1409,17 @@ window.addExRow = function(prefillSets) {
         'oninput="showExSuggestions(' + id + ')" onkeydown="exKeyNav(event,' + id + ')" onfocus="showExSuggestions(' + id + ')" onblur="setTimeout(()=>showExHistory(' + id + '),150)" />' +
         '<div class="ex-suggestions" id="ex-suggestions-' + id + '"></div>' +
       '</div>' +
-      '<input type="text" class="ex-rpe-global" id="ex-rpe-' + id + '" placeholder="RPE" title="Overall RPE for this exercise" />' +
       '<button class="remove-row-btn" onclick="removeExRow(' + id + ')">✕</button>' +
     '</div>' +
-    '<div class="ex-set-headers"><span>SET</span><span>WEIGHT (lbs)</span><span>REPS</span><span></span></div>' +
+    '<div class="ex-set-headers"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>RPE</span><span>%MAX</span><span></span></div>' +
     '<div class="ex-sets-list" id="ex-sets-list-' + id + '"></div>' +
     '<div class="ex-set-controls">' +
       '<button class="ex-set-btn" onclick="addSetRow(' + id + ')">＋ Set</button>' +
       '<button class="ex-set-btn ex-set-btn-remove" onclick="removeSetRow(' + id + ')">－ Set</button>' +
     '</div>' +
+    '<input type="text" class="ex-note-input" id="ex-note-' + id + '" placeholder="📝 Exercise note (optional)..." />' +
     '<div class="ex-detail-panel" id="ex-detail-' + id + '" style="display:none;">' +
       '<div class="ex-history-list" id="ex-history-' + id + '"></div>' +
-      '<input type="text" class="ex-note-input" id="ex-note-' + id + '" placeholder="📝 Exercise note (optional)..." />' +
     '</div>';
   document.getElementById('exercise-rows').appendChild(div);
   // Add default 3 sets (or prefilled)
@@ -1447,7 +1431,7 @@ window.addExRow = function(prefillSets) {
   });
 };
 
-window.addSetRow = function(exId, weight, reps) {
+window.addSetRow = function(exId, weight, reps, rpe, pct) {
   const list = document.getElementById('ex-sets-list-' + exId);
   if (!list) return;
   const setNum = list.children.length + 1;
@@ -1456,7 +1440,9 @@ window.addSetRow = function(exId, weight, reps) {
   row.innerHTML =
     '<span class="ex-set-label">S' + setNum + '</span>' +
     '<input type="text" class="ex-set-input" placeholder="lbs" value="' + (weight||'') + '" />' +
-    '<input type="text" class="ex-set-input ex-set-reps" placeholder="reps" value="' + (reps||'') + '" />' +
+    '<input type="text" class="ex-set-input" placeholder="reps" value="' + (reps||'') + '" />' +
+    '<input type="text" class="ex-set-input ex-set-small" placeholder="RPE" value="' + (rpe||'') + '" />' +
+    '<input type="text" class="ex-set-input ex-set-small" placeholder="%" value="' + (pct||'') + '" />' +
     '<span class="ex-set-check" onclick="toggleSetDone(this)">✓</span>';
   list.appendChild(row);
 };
@@ -1594,7 +1580,7 @@ window.saveSession = async function() {
   const week = parseInt(document.getElementById('log-week').value) || null;
   const focus = document.getElementById('log-focus').value;
   const sessionNotes = document.getElementById('log-session-notes').value.trim();
-  const exNotes = document.getElementById('log-ex-notes').value.trim();
+  const exNotes = '';
   const isPR = document.getElementById('log-pr').value === 'true';
   const rows = [...document.getElementById('exercise-rows').children];
   const toSave = [];
@@ -1609,7 +1595,12 @@ window.saveSession = async function() {
     const setRows = setsList ? [...setsList.children] : [];
     const setsData = setRows.map(sr => {
       const inputs = sr.querySelectorAll('.ex-set-input');
-      return { weight: inputs[0]?.value.trim()||'', reps: inputs[1]?.value.trim()||'' };
+      return {
+        weight: inputs[0]?.value.trim()||'',
+        reps: inputs[1]?.value.trim()||'',
+        rpe: inputs[2]?.value.trim()||'',
+        pct: inputs[3]?.value.trim()||''
+      };
     }).filter(s => s.weight || s.reps);
     // Compute summary for display + suggestion engine
     const weights = setsData.map(s => parseFloat(s.weight)).filter(n => !isNaN(n));
@@ -1617,15 +1608,20 @@ window.saveSession = async function() {
     const totalSets = String(setsData.length);
     const repsList = [...new Set(setsData.map(s => s.reps).filter(Boolean))];
     const repsDisplay = repsList.length === 1 ? repsList[0] : setsData.map(s=>s.reps).join('/');
+    // Compute RPE/pct summaries from per-set data
+    const rpeVals = setsData.map(s => parseFloat(s.rpe)).filter(n => !isNaN(n));
+    const pctVals = setsData.map(s => parseFloat(s.pct)).filter(n => !isNaN(n));
+    const avgRpe = rpeVals.length ? (rpeVals.reduce((a,b)=>a+b,0)/rpeVals.length).toFixed(1) : '';
+    const avgPct = pctVals.length ? (pctVals.reduce((a,b)=>a+b,0)/pctVals.length).toFixed(0) : '';
     toSave.push({ clientName: currentClient.name, week, date, focus,
       exercise: normalizeExercise(name),
       sets: totalSets,
       reps: repsDisplay,
       weight: heaviestWeight,
       setsData: setsData,
-      rpe: rpeVal, pct: '',
-      effortScale: rpeVal?'rpe':'', effortVal: rpeVal||'',
-      pr: isPR, sessionNotes, exNotes: perExNote || exNotes,
+      rpe: avgRpe, pct: avgPct,
+      effortScale: avgRpe?'rpe':avgPct?'pct':'', effortVal: avgRpe||avgPct||'',
+      pr: isPR, sessionNotes, exNotes: perExNote,
       createdAt: new Date().toISOString() });
   });
   if (!toSave.length) { btn.disabled=false; btn.innerHTML='💾 SAVE SESSION'; return showToast('Add at least one exercise'); }
@@ -1641,7 +1637,7 @@ window.saveSession = async function() {
       c.sessionCount = uniqueDates; c.lastDate = date; updateDoc(doc(db,'clients',currentClient.id),{sessionCount:uniqueDates,lastDate:date}).catch(()=>{}); }
     initLogForm();
     document.getElementById('log-session-notes').value = '';
-    document.getElementById('log-ex-notes').value = '';
+
     document.getElementById('log-pr').value = 'false';
     document.getElementById('hist-week-filter').innerHTML = '<option value="">All Weeks</option>';
     document.getElementById('hist-focus-filter').innerHTML = '<option value="">All Focus Areas</option>';
