@@ -304,74 +304,47 @@
       }
     }
 
+    /* ── EXERCISE ROW — NEW PER-SET LAYOUT ── */
+    .ex-input-row { display: block; margin-bottom: 12px; background: var(--surface2); border-radius: 10px; padding: 10px 12px; animation: slideIn 0.2s ease; }
+    .ex-name-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .ex-name-row .ex-name-wrap { flex: 1; }
+    .ex-rpe-global { width: 60px; flex-shrink: 0; text-align: center; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 4px; color: var(--text); }
+    .ex-rpe-global::placeholder { font-size: 10px; }
+    .ex-set-headers { display: grid; grid-template-columns: 36px 1fr 1fr 28px; gap: 6px; padding: 0 2px; margin-bottom: 4px; }
+    .ex-set-headers span { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-align: center; }
+    .ex-set-headers span:first-child { text-align: left; }
+    .ex-set-row { display: grid; grid-template-columns: 36px 1fr 1fr 28px; gap: 6px; align-items: center; margin-bottom: 5px; }
+    .ex-set-label { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; background: var(--surface); border-radius: 4px; padding: 4px 0; }
+    .ex-set-input { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; color: var(--text); font-size: 13px; text-align: center; width: 100%; box-sizing: border-box; }
+    .ex-set-input:focus { outline: none; border-color: var(--accent); }
+    .ex-set-check { font-size: 14px; color: var(--muted); cursor: pointer; text-align: center; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--surface); transition: all 0.15s; }
+    .ex-set-check.done { background: var(--accent); color: #0d0f14; border-color: var(--accent); font-weight: 700; }
+    .ex-set-controls { display: flex; gap: 8px; margin: 6px 0 4px; }
+    .ex-set-btn { font-size: 11px; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-weight: 600; }
+    .ex-set-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .ex-set-btn-remove:hover { border-color: var(--danger); color: var(--danger); }
+
     /* ── EXERCISE DETAIL PANEL ── */
-    .ex-input-row { margin-bottom: 8px; }
-    .ex-grid-row {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 30px;
-      gap: 8px; align-items: center;
-    }
-    .ex-detail-panel {
-      margin-top: 6px; padding: 8px 10px;
-      background: rgba(255,255,255,0.025);
-      border-radius: 8px; border: 1px solid var(--border);
-    }
-    .ex-history-label {
-      font-size: 10px; font-weight: 700; letter-spacing: 1px;
-      text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
-    }
-    .ex-history-row {
-      display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;
-      padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
-      font-size: 11px;
-    }
+    .ex-detail-panel { margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--border); }
+    .ex-history-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .ex-history-row { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 11px; }
     .ex-history-row:last-child { border-bottom: none; }
-    .ex-history-date { color: var(--muted); min-width: 42px; flex-shrink: 0; }
+    .ex-history-date-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+    .ex-history-date { color: var(--muted); font-size: 11px; }
+    .ex-history-set-row { display: grid; grid-template-columns: 24px 1fr 1fr; gap: 6px; font-size: 11px; padding: 1px 0; }
+    .ex-history-set-label { color: var(--muted); font-weight: 700; text-align: center; }
+    .ex-history-set-wt { color: var(--text); }
+    .ex-history-set-reps { color: var(--muted); }
+    .ex-history-heaviest { font-size: 10px; color: var(--accent); margin-top: 3px; }
     .ex-history-stats { color: var(--text); }
     .ex-history-effort { color: var(--accent); font-size: 10px; }
-    .ex-history-note { color: var(--muted); font-style: italic; font-size: 10px; width: 100%; }
-    .ex-note-input {
-      width: 100%; margin-top: 8px; background: var(--surface2);
-      border: 1px solid var(--border); border-radius: 6px;
-      padding: 6px 10px; color: var(--text); font-size: 12px;
-      box-sizing: border-box;
-    }
+    .ex-history-note { color: var(--muted); font-style: italic; font-size: 10px; display: block; margin-top: 2px; }
+    .ex-note-input { width: 100%; margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); font-size: 12px; box-sizing: border-box; }
     .ex-note-input:focus { outline: none; border-color: var(--accent); }
 
     @media (max-width: 640px) {
-      .ex-grid-row {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr 1fr !important;
-        gap: 6px; position: relative;
-      }
-      .ex-grid-row .ex-name-wrap { grid-column: 1 / -1; }
-      .ex-grid-row input[id^="ex-rpe-"],
-      .ex-grid-row input[id^="ex-pct-"] {
-        display: inline-block; width: calc(50% - 3px); box-sizing: border-box;
-      }
-      .ex-grid-row .remove-row-btn {
-        position: absolute; top: 0; right: 0; width: 26px; height: 26px; padding: 0;
-      }
-    }
-
-    .ex-name-editable {
-      cursor: pointer;
-      border-bottom: 1px dashed transparent;
-      padding-bottom: 1px;
-      transition: border-color 0.15s;
-    }
-    .ex-name-editable:hover { border-bottom-color: var(--muted); }
-    .ex-name-editing {
-      background: var(--surface2);
-      border: 1px solid var(--accent);
-      border-radius: 5px;
-      padding: 2px 7px;
-      font-size: inherit;
-      font-family: inherit;
-      font-weight: inherit;
-      color: var(--text);
-      outline: none;
-      min-width: 120px;
+      .ex-set-headers { grid-template-columns: 30px 1fr 1fr 24px; }
+      .ex-set-row { grid-template-columns: 30px 1fr 1fr 24px; }
     }
 
     /* ── ARCHIVE / DANGER ZONE ── */
@@ -477,15 +450,8 @@
       /* Stats grid — 2x2 */
       .stats-grid { grid-template-columns: 1fr 1fr !important; }
 
-      /* ── LOG SESSION: exercise rows ── */
+      /* ── LOG SESSION: exercise rows — already card-based, minimal overrides ── */
       .ex-row-headers { display: none !important; }
-      .ex-input-row {
-        background: var(--surface2);
-        border-radius: 10px;
-        padding: 10px;
-        margin-bottom: 10px;
-      }
-      .ex-detail-panel { margin-top: 8px; }
 
       /* ── LOG SESSION: date/week/focus ── */
       .form-row { flex-direction: column; gap: 8px; }
@@ -672,12 +638,7 @@
 
       <div class="form-group">
         <label>Exercises</label>
-        <div class="ex-row-headers" id="ex-row-headers">
-          <span>Exercise Name</span><span style="text-align:center">Sets</span>
-          <span style="text-align:center">Reps</span><span style="text-align:center">Weight</span>
-          <span style="text-align:center">RPE (1–10)</span>
-          <span style="text-align:center">% of Max</span><span></span>
-        </div>
+        
         <div id="exercise-rows"></div>
         <button class="btn-add-row" onclick="addExRow()">＋ Add Exercise</button>
       </div>
@@ -925,6 +886,8 @@ async function init() {
       const missing = SEED_DATA.filter(c => !existingNames.has(c.name));
       console.log('Missing clients:', missing.map(c => c.name));
       await seedMissingClients(missing);
+      // Also seed sessions for existing clients that have 0 sessions
+      await seedSessionsForExistingClients(clientsSnap);
       step(88, 'Missing clients seeded!');
     } else {
       step(40, clientCount + ' clients found. Checking sessions…');
@@ -935,7 +898,9 @@ async function init() {
         await seedSessionsOnly(clientsSnap);
         step(88, 'Sessions seeded!');
       } else {
-        step(60, 'Sessions found. Building app…');
+        step(55, 'Checking for clients missing sessions…');
+        await seedSessionsForExistingClients(clientsSnap);
+        step(60, 'Building app…');
       }
     }
     step(90, 'Loading client list…');
@@ -1003,6 +968,37 @@ async function seedSessionsOnly(clientsSnap) {
   for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
     const batchNum = Math.floor(i/BATCH_SIZE)+1;
     setLoading(50 + Math.round((batchNum/totalBatches)*35), 'Writing sessions batch ' + batchNum + '/' + totalBatches + '…');
+    const batch = writeBatch(db);
+    allOps.slice(i, i+BATCH_SIZE).forEach(data => batch.set(doc(collection(db, 'sessions')), data));
+    await batch.commit();
+  }
+}
+
+async function seedSessionsForExistingClients(clientsSnap) {
+  // For each client in Firestore that has sessions in SEED_DATA but 0 in Firestore,
+  // seed their sessions
+  const now = new Date().toISOString();
+  const allOps = [];
+  for (const clientDoc of clientsSnap.docs) {
+    const clientName = clientDoc.data().name;
+    const seedClient = SEED_DATA.find(c => c.name === clientName);
+    if (!seedClient || !seedClient.sessions || !seedClient.sessions.length) continue;
+    // Check if this client already has sessions
+    const sessCheck = await getDocs(query(collection(db, 'sessions'),
+      where('clientName', '==', clientName), limit(1)));
+    if (!sessCheck.empty) continue; // already has sessions, skip
+    console.log('Seeding sessions for existing client:', clientName);
+    for (const s of seedClient.sessions) {
+      allOps.push({ clientName, week: s.week||null, date: s.date||'', focus: s.focus||'',
+        exercise: s.exercise||'', sets: s.sets||'', reps: s.reps||'', weight: s.weight||'',
+        pr: s.pr||false, sessionNotes: s.sessionNotes||'', exNotes: s.exNotes||'',
+        rpe: s.rpe||'', pct: s.pct||'', effortScale: s.effortScale||'', effortVal: s.effortVal||'',
+        seeded: true, createdAt: now });
+    }
+  }
+  if (!allOps.length) return;
+  const BATCH_SIZE = 499;
+  for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
     const batch = writeBatch(db);
     allOps.slice(i, i+BATCH_SIZE).forEach(data => batch.set(doc(collection(db, 'sessions')), data));
     await batch.commit();
@@ -1161,18 +1157,28 @@ window.showTab = function(name) {
 };
 
 // ── SUGGESTION ENGINE ──
+function getHeaviest(session) {
+  if (session.setsData && session.setsData.length) {
+    const weights = session.setsData.map(s => parseFloat(s.weight)).filter(n => !isNaN(n));
+    return weights.length ? Math.max(...weights) : NaN;
+  }
+  return parseFloat(session.weight);
+}
+
 function getSuggestion(exerciseName) {
   const exSessions = clientSessions
-    .filter(s => s.exercise === exerciseName && s.weight && !isNaN(parseFloat(s.weight)))
+    .filter(s => s.exercise === exerciseName && (s.weight || s.setsData))
+    .filter(s => !isNaN(getHeaviest(s)))
     .sort((a, b) => (a.date||'').localeCompare(b.date||''));
   if (exSessions.length < 2) return exSessions.length === 1 ? '<span class="suggestion-badge sug-new">🆕 First logged — establish baseline</span>' : null;
   const last = exSessions[exSessions.length-1], prev = exSessions[exSessions.length-2];
-  const lastW = parseFloat(last.weight), prevW = parseFloat(prev.weight);
+  const lastW = getHeaviest(last), prevW = getHeaviest(prev);
+  const isPerSet = last.setsData && last.setsData.length > 0;
   const lastRPE = parseFloat(last.rpe || (last.effortScale==='rpe' ? last.effortVal : '')) || null;
   const prevRPE = parseFloat(prev.rpe || (prev.effortScale==='rpe' ? prev.effortVal : '')) || null;
   if ((lastRPE >= 9 && prevRPE >= 9) || lastW < prevW) return '<span class="suggestion-badge sug-deload">🔁 Deload — reduce weight ~10%, focus on form</span>';
   if ((lastRPE >= 8) || (lastW > prevW)) return '<span class="suggestion-badge sug-hold">✅ Hold — same weight, consolidate before loading</span>';
-  if (lastRPE !== null && lastRPE <= 7) { const bump = lastW >= 50 ? 5 : 2.5; return '<span class="suggestion-badge sug-progress">📈 Progress — try ' + (lastW+bump) + ' lbs next session</span>'; }
+  if (lastRPE !== null && lastRPE <= 7) { const bump = lastW >= 50 ? 5 : 2.5; const label = isPerSet ? ' (heaviest set)' : ''; return '<span class="suggestion-badge sug-progress">📈 Progress — try ' + (lastW+bump) + ' lbs' + label + '</span>'; }
   if (lastW === prevW && exSessions.length >= 3 && parseFloat(exSessions[exSessions.length-3].weight) === lastW) return '<span class="suggestion-badge sug-progress">📈 3 sessions at ' + lastW + ' lbs — ready to progress</span>';
   return '<span class="suggestion-badge sug-hold">✅ Consistent — hold weight, monitor RPE</span>';
 }
@@ -1333,36 +1339,63 @@ async function initLogForm() {
   }
 }
 
-window.addExRow = function() {
+window.addExRow = function(prefillSets) {
   exRowCount++;
   const id = exRowCount;
   const div = document.createElement('div');
   div.className = 'ex-input-row';
   div.id = 'exrow-' + id;
   div.innerHTML =
-    '<div class="ex-grid-row">' +
+    '<div class="ex-name-row">' +
       '<div class="ex-name-wrap" id="ex-name-wrap-' + id + '">' +
         '<input type="text" class="ex-name-cell" id="ex-name-' + id + '" placeholder="Exercise name" autocomplete="off" ' +
         'oninput="showExSuggestions(' + id + ')" onkeydown="exKeyNav(event,' + id + ')" onfocus="showExSuggestions(' + id + ')" onblur="setTimeout(()=>showExHistory(' + id + '),150)" />' +
         '<div class="ex-suggestions" id="ex-suggestions-' + id + '"></div>' +
       '</div>' +
-      '<input type="text" id="ex-sets-' + id + '" placeholder="Sets" />' +
-      '<input type="text" id="ex-reps-' + id + '" placeholder="Reps" />' +
-      '<input type="text" id="ex-wt-' + id + '" placeholder="Weight" />' +
-      '<input type="text" class="ex-effort-input" id="ex-rpe-' + id + '" placeholder="e.g. 7" style="text-align:center" />' +
-      '<input type="text" class="ex-effort-input" id="ex-pct-' + id + '" placeholder="e.g. 75" style="text-align:center" />' +
+      '<input type="text" class="ex-rpe-global" id="ex-rpe-' + id + '" placeholder="RPE" title="Overall RPE for this exercise" />' +
       '<button class="remove-row-btn" onclick="removeExRow(' + id + ')">✕</button>' +
+    '</div>' +
+    '<div class="ex-set-headers"><span>SET</span><span>WEIGHT (lbs)</span><span>REPS</span><span></span></div>' +
+    '<div class="ex-sets-list" id="ex-sets-list-' + id + '"></div>' +
+    '<div class="ex-set-controls">' +
+      '<button class="ex-set-btn" onclick="addSetRow(' + id + ')">＋ Set</button>' +
+      '<button class="ex-set-btn ex-set-btn-remove" onclick="removeSetRow(' + id + ')">－ Set</button>' +
     '</div>' +
     '<div class="ex-detail-panel" id="ex-detail-' + id + '" style="display:none;">' +
       '<div class="ex-history-list" id="ex-history-' + id + '"></div>' +
       '<input type="text" class="ex-note-input" id="ex-note-' + id + '" placeholder="📝 Exercise note (optional)..." />' +
     '</div>';
   document.getElementById('exercise-rows').appendChild(div);
+  // Add default 3 sets (or prefilled)
+  const defaultSets = prefillSets && prefillSets.length ? prefillSets : [{w:'',r:''},{w:'',r:''},{w:'',r:''}];
+  defaultSets.forEach(s => addSetRow(id, s.w||s.weight||'', s.r||s.reps||''));
   document.addEventListener('click', function handler(e) {
     const wrap = document.getElementById('ex-name-wrap-' + id);
     if (wrap && !wrap.contains(e.target)) closeSuggestions(id);
   });
 };
+
+window.addSetRow = function(exId, weight, reps) {
+  const list = document.getElementById('ex-sets-list-' + exId);
+  if (!list) return;
+  const setNum = list.children.length + 1;
+  const row = document.createElement('div');
+  row.className = 'ex-set-row';
+  row.innerHTML =
+    '<span class="ex-set-label">S' + setNum + '</span>' +
+    '<input type="text" class="ex-set-input" placeholder="lbs" value="' + (weight||'') + '" />' +
+    '<input type="text" class="ex-set-input ex-set-reps" placeholder="reps" value="' + (reps||'') + '" />' +
+    '<span class="ex-set-check" onclick="toggleSetDone(this)">✓</span>';
+  list.appendChild(row);
+};
+
+window.removeSetRow = function(exId) {
+  const list = document.getElementById('ex-sets-list-' + exId);
+  if (list && list.children.length > 1) list.removeChild(list.lastChild);
+};
+
+window.toggleSetDone = function(el) { el.classList.toggle('done'); };
+
 window.removeExRow = function(id) { document.getElementById('exrow-' + id)?.remove(); };
 
 window.showExSuggestions = function(id) {
@@ -1420,7 +1453,6 @@ window.selectExSuggestion = function(id, name) {
   closeSuggestions(id);
   if (!MASTER_EXERCISES.includes(name)) { MASTER_EXERCISES.push(name); MASTER_EXERCISES.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase())); }
   window.showExHistory(id);
-  document.getElementById('ex-sets-' + id)?.focus();
 };
 
 window.showExHistory = function(id) {
@@ -1438,14 +1470,29 @@ window.showExHistory = function(id) {
   if (history.length) {
     histList.innerHTML = '<div class="ex-history-label">Last ' + history.length + ' session' + (history.length > 1 ? 's' : '') + '</div>' +
       history.map(s => {
-        const parts = [s.sets ? s.sets + ' sets' : null, s.reps ? s.reps + ' reps' : null, s.weight ? s.weight + ' lbs' : null].filter(Boolean).join(' · ');
         const rpe = s.rpe || (s.effortScale === 'rpe' ? s.effortVal : '');
-        const pct = s.pct || (s.effortScale === 'pct' ? s.effortVal : '');
-        const effort = [rpe ? 'RPE ' + rpe : '', pct ? pct + '%' : ''].filter(Boolean).join(' · ');
+        let statsHtml = '';
+        if (s.setsData && s.setsData.length) {
+          // Per-set format
+          const heaviest = Math.max(...s.setsData.map(x => parseFloat(x.weight)||0));
+          statsHtml = s.setsData.map((set, i) =>
+            '<div class="ex-history-set-row">' +
+            '<span class="ex-history-set-label">S'+(i+1)+'</span>' +
+            '<span class="ex-history-set-wt">'+(set.weight||'—')+' lbs</span>' +
+            '<span class="ex-history-set-reps">'+(set.reps||'—')+' reps</span>' +
+            '</div>'
+          ).join('') + (heaviest > 0 ? '<div class="ex-history-heaviest">🏋 Heaviest: ' + heaviest + ' lbs</div>' : '');
+        } else {
+          // Legacy format
+          const parts = [s.sets ? s.sets + ' sets' : null, s.reps ? s.reps + ' reps' : null, s.weight ? s.weight + ' lbs' : null].filter(Boolean).join(' · ');
+          statsHtml = '<span class="ex-history-stats">' + (parts||'—') + '</span>';
+        }
         return '<div class="ex-history-row">' +
-          '<span class="ex-history-date">' + fmtDateShort(s.date) + '</span>' +
-          '<span class="ex-history-stats">' + (parts || '—') + '</span>' +
-          (effort ? '<span class="ex-history-effort">' + effort + '</span>' : '') +
+          '<div class="ex-history-date-row">' +
+            '<span class="ex-history-date">' + fmtDateShort(s.date) + '</span>' +
+            (rpe ? '<span class="ex-history-effort">RPE ' + rpe + '</span>' : '') +
+          '</div>' +
+          statsHtml +
           (s.exNotes ? '<span class="ex-history-note">📝 ' + s.exNotes + '</span>' : '') +
         '</div>';
       }).join('');
@@ -1484,16 +1531,30 @@ window.saveSession = async function() {
     const name = document.getElementById('ex-name-' + id)?.value.trim();
     if (!name) return;
     const rpeVal = document.getElementById('ex-rpe-' + id)?.value.trim() || '';
-    const pctVal = document.getElementById('ex-pct-' + id)?.value.trim() || '';
     const perExNote = document.getElementById('ex-note-' + id)?.value.trim() || '';
+    // Collect per-set data
+    const setsList = document.getElementById('ex-sets-list-' + id);
+    const setRows = setsList ? [...setsList.children] : [];
+    const setsData = setRows.map(sr => {
+      const inputs = sr.querySelectorAll('.ex-set-input');
+      return { weight: inputs[0]?.value.trim()||'', reps: inputs[1]?.value.trim()||'' };
+    }).filter(s => s.weight || s.reps);
+    // Compute summary for display + suggestion engine
+    const weights = setsData.map(s => parseFloat(s.weight)).filter(n => !isNaN(n));
+    const heaviestWeight = weights.length ? String(Math.max(...weights)) : '';
+    const totalSets = String(setsData.length);
+    const repsList = [...new Set(setsData.map(s => s.reps).filter(Boolean))];
+    const repsDisplay = repsList.length === 1 ? repsList[0] : setsData.map(s=>s.reps).join('/');
     toSave.push({ clientName: currentClient.name, week, date, focus,
       exercise: normalizeExercise(name),
-      sets: document.getElementById('ex-sets-' + id)?.value.trim() || '',
-      reps: document.getElementById('ex-reps-' + id)?.value.trim() || '',
-      weight: document.getElementById('ex-wt-' + id)?.value.trim() || '',
-      rpe: rpeVal, pct: pctVal,
-      effortScale: rpeVal?'rpe':pctVal?'pct':'', effortVal: rpeVal||pctVal||'',
-      pr: isPR, sessionNotes, exNotes: perExNote || exNotes, createdAt: new Date().toISOString() });
+      sets: totalSets,
+      reps: repsDisplay,
+      weight: heaviestWeight,
+      setsData: setsData,
+      rpe: rpeVal, pct: '',
+      effortScale: rpeVal?'rpe':'', effortVal: rpeVal||'',
+      pr: isPR, sessionNotes, exNotes: perExNote || exNotes,
+      createdAt: new Date().toISOString() });
   });
   if (!toSave.length) { btn.disabled=false; btn.innerHTML='💾 SAVE SESSION'; return showToast('Add at least one exercise'); }
   try {
@@ -2085,16 +2146,13 @@ function applyPlanToLog(plan) {
   document.getElementById('exercise-rows').innerHTML = '';
   exRowCount = 0;
   plan.exercises.forEach(ex => {
-    window.addExRow();
+    // Build prefill sets from plan data
+    const numSets = parseInt(ex.sets) || 3;
+    const prefill = Array.from({length: numSets}, () => ({w: ex.weight||'', r: ex.reps||''}));
+    window.addExRow(prefill);
     const id = exRowCount;
     const nameEl = document.getElementById('ex-name-' + id);
     if (nameEl) nameEl.value = ex.exercise;
-    const setsEl = document.getElementById('ex-sets-' + id);
-    if (setsEl) setsEl.value = ex.sets || '';
-    const repsEl = document.getElementById('ex-reps-' + id);
-    if (repsEl) repsEl.value = ex.reps || '';
-    const wtEl = document.getElementById('ex-wt-' + id);
-    if (wtEl) wtEl.value = ex.weight || '';
   });
   // Set session notes
   const notesEl = document.getElementById('log-session-notes');
