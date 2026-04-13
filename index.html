@@ -1363,35 +1363,39 @@ function renderOverview() {
       const exNames = [...new Set(rows.map(r => r.exercise))];
       const exRowsHTML = exNames.map(exName => {
         const e = rows.find(r => r.exercise === exName);
-        const vRpe = parseFloat(e?.rpe || (e?.effortScale==='rpe' ? e?.effortVal : '')) || null;
-        const vPct = parseFloat(e?.pct || (e?.effortScale==='pct' ? e?.effortVal : '')) || null;
-        const vRpeClass = vRpe ? (vRpe<=6?'rpe-easy':vRpe<=8?'rpe-medium':'rpe-hard') : '';
-        const vEffortParts = [];
-        if (vRpe) vEffortParts.push('<span class="rpe-badge ' + vRpeClass + '">RPE ' + vRpe + '</span>');
-        if (vPct) vEffortParts.push('<span class="rpe-badge rpe-medium">' + vPct + '%</span>');
         const sug = getSuggestion(exName);
-        const fmtReps = (r) => {
-          if (!r) return null;
-          // If reps already contains a word (laps, min, s) don't append 'reps'
-          if (/[a-zA-Z]/.test(r)) return r;
-          return r + ' reps';
-        };
-        const fmtSets = (s) => {
-          if (!s) return null;
-          if (/[a-zA-Z]/.test(s)) return s;
-          return s + ' sets';
-        };
-        const statLine = [
-          fmtSets(e?.sets),
-          fmtReps(e?.reps),
-          (e?.weight ? e.weight + ' lbs' : null),
-        ].filter(Boolean).join(' · ');
-        return '<div class="visit-ex-row">' +
-          '<div class="visit-ex-name">' + exName + '</div>' +
-          '<div class="visit-ex-val visit-stat-line">' + statLine + '</div>' +
-          '<div class="visit-ex-val">' + (vEffortParts.length ? vEffortParts.join(' ') : '') + '</div>' +
-          (sug ? '<div class="visit-ex-suggestion">' + sug + '</div>' : '') +
+        let setsHTML = '';
+        if (e?.setsData && e.setsData.length) {
+          setsHTML = e.setsData.map((s, i) => {
+            const rc = s.rpe ? (parseFloat(s.rpe)<=6?'rpe-easy':parseFloat(s.rpe)<=8?'rpe-medium':'rpe-hard') : '';
+            return '<div class="hist-set-row">' +
+              '<span class="hist-set-label">S'+(i+1)+'</span>' +
+              '<span class="hist-set-wt">'+(s.weight||'—')+' lbs</span>' +
+              '<span class="hist-set-reps">'+(s.reps||'—')+' reps</span>' +
+              (s.rpe ? '<span class="rpe-badge '+rc+'">RPE '+s.rpe+'</span>' : '') +
+              (s.pct ? '<span class="rpe-badge rpe-medium">'+s.pct+'%</span>' : '') +
+            '</div>';
+          }).join('');
+          const heaviest = Math.max(...e.setsData.map(s=>parseFloat(s.weight)||0));
+          if (heaviest > 0) setsHTML += '<div class="hist-heaviest">🏋 Heaviest: '+heaviest+' lbs</div>';
+        } else {
+          const vRpe = parseFloat(e?.rpe||(e?.effortScale==='rpe'?e?.effortVal:''))||null;
+          const vPct = parseFloat(e?.pct||(e?.effortScale==='pct'?e?.effortVal:''))||null;
+          const rc = vRpe?(vRpe<=6?'rpe-easy':vRpe<=8?'rpe-medium':'rpe-hard'):'';
+          const parts = [(e?.sets&&!/[a-zA-Z]/.test(e.sets)?e.sets+'×':e?.sets),(e?.weight?e.weight+' lbs':null),(e?.reps&&!/[a-zA-Z]/.test(e.reps)?e.reps+' reps':e?.reps)].filter(Boolean).join(' · ');
+          setsHTML = '<div class="hist-set-row hist-set-legacy">' +
+            '<span class="hist-set-wt" style="min-width:auto;">'+(parts||'—')+'</span>' +
+            (vRpe?'<span class="rpe-badge '+rc+'">RPE '+vRpe+'</span>':'') +
+            (vPct?'<span class="rpe-badge rpe-medium">'+vPct+'%</span>':'') +
           '</div>';
+        }
+        return '<div class="hist-ex-block">' +
+          '<div class="hist-ex-name"><span style="font-size:13px;font-weight:700;color:var(--text);">'+exName+'</span>' +
+          (e?.pr?'<span class="pr-tag">🏆 PR</span>':'') +
+          '</div>' +
+          setsHTML +
+          (sug?'<div class="hist-suggestion">'+sug+'</div>':'') +
+        '</div>';
       }).join('');
       const isOpen = vi === 0;
       html += '<div class="visit-card">' +
@@ -1402,11 +1406,7 @@ function renderOverview() {
         '<span style="font-size:11px;color:var(--muted);">' + exNames.length + ' exercises</span></div></div>' +
         '<span class="visit-chev" style="color:var(--muted);font-size:13px;transition:transform 0.2s;">▾</span></div>' +
         '<div class="visit-body' + (isOpen ? ' open' : '') + '">' +
-        '<div class="visit-ex-row visit-col-header" style="border-bottom:1px solid var(--border);margin-bottom:4px;">' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Exercise</div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Stats</div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Effort / Next</div>' +
-        '</div>' + exRowsHTML + (note ? '<div class="note-line" style="margin-top:6px;">📋 ' + note + '</div>' : '') + '</div></div>';
+        exRowsHTML + (note ? '<div class="note-line" style="margin-top:6px;">📋 ' + note + '</div>' : '') + '</div></div>';
     });
     html += '</div>';
   }
@@ -1994,16 +1994,35 @@ function renderPRs() {
 // Plan doc stored as: plans/{clientId}
 // Structure: { exercises: [{exercise, sets, reps, weight, notes, suggestion}], focus, notes, updatedAt }
 
-async function loadPlan() {
+function planDocId(clientId, focus) {
+  // Sanitize focus for use as doc ID
+  const f = (focus||'general').toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return clientId + '__' + f;
+}
+
+async function loadPlan(focus) {
   try {
-    const ref = doc(db, 'plans', currentClient.id);
+    const id = planDocId(currentClient.id, focus);
+    const ref = doc(db, 'plans', id);
     const snap = await getDoc(ref);
     return snap.exists() ? snap.data() : null;
   } catch(e) { return null; }
 }
 
+async function loadAllPlans() {
+  // Load all saved plans for this client across all focuses
+  try {
+    const snap = await getDocs(collection(db, 'plans'));
+    return snap.docs
+      .filter(d => d.id.startsWith(currentClient.id + '__'))
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+  } catch(e) { return []; }
+}
+
 async function savePlan(planData) {
-  const ref = doc(db, 'plans', currentClient.id);
+  const id = planDocId(currentClient.id, planData.focus);
+  const ref = doc(db, 'plans', id);
   await setDoc(ref, { ...planData, updatedAt: new Date().toISOString() });
 }
 
@@ -2103,7 +2122,9 @@ async function renderPlan() {
   const content = document.getElementById('plan-content');
   content.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Loading plan…</div>';
 
-  const [savedPlan, suggestions] = await Promise.all([loadPlan(), Promise.resolve(buildPlanSuggestions())]);
+  // Load plan for the current focus (or most recent if none saved for this focus)
+  const suggestions = buildPlanSuggestions();
+  const savedPlan = await loadPlan(suggestions.focus);
 
   // Use saved plan if exists, otherwise use suggestions
   const plan = savedPlan || { focus: suggestions.focus, exercises: suggestions.exercises, notes: '' };
@@ -2216,12 +2237,24 @@ function getPlanData() {
   };
 }
 
-window.onPlanFocusChange = function(newFocus) {
-  const suggestions = buildPlanSuggestions(newFocus);
+window.onPlanFocusChange = async function(newFocus) {
   const planRows = document.getElementById('plan-rows');
   const label = document.getElementById('plan-focus-label');
   if (!planRows) return;
 
+  // Try loading a saved plan for this focus first
+  const saved = await loadPlan(newFocus);
+  if (saved && saved.exercises && saved.exercises.length) {
+    // Restore saved plan for this focus
+    const focusDates = [...new Set(clientSessions.filter(s=>s.focus===newFocus&&s.date).map(s=>s.date))].sort();
+    const lastDate = focusDates[focusDates.length-1];
+    if (label) label.textContent = lastDate ? 'Saved plan · Last '+newFocus+' session: '+fmtDate(lastDate) : 'Saved plan for '+newFocus;
+    renderPlanRows(saved.exercises);
+    return;
+  }
+
+  // No saved plan — build suggestions from history
+  const suggestions = buildPlanSuggestions(newFocus);
   if (!suggestions.exercises.length) {
     planRows.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;">No sessions logged for this focus area yet.</div>';
     if (label) label.textContent = '';
@@ -2259,22 +2292,49 @@ window.onPlanFocusChange = function(newFocus) {
   }).join('');
 };
 
+function renderPlanRows(exercises) {
+  const planRows = document.getElementById('plan-rows');
+  if (!planRows) return;
+  const sugClass = { progress: 'sug-progress', hold: 'sug-hold', deload: 'sug-deload', new: 'sug-new' };
+  planRows.innerHTML = exercises.map((ex, i) => {
+    const sc = sugClass[ex.suggestionType] || 'sug-hold';
+    return '<div class="plan-row" id="plan-row-'+i+'">' +
+      '<div class="plan-ex-name-cell">' +
+        '<div class="plan-ex-name">'+ex.exercise+'</div>' +
+        (ex.suggestion ? '<span class="suggestion-badge '+sc+' plan-sug-badge">'+ex.suggestion+'</span>' : '') +
+        (ex.lastWeight ? '<div class="plan-last-val">Last: '+ex.lastSets+' × '+ex.lastReps+' @ '+ex.lastWeight+' lbs</div>' : '') +
+      '</div>' +
+      '<div class="plan-srw-row">' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Sets</span><input type="text" class="plan-input" id="plan-sets-'+i+'" value="'+(ex.sets||'')+'" placeholder="—" /></div>' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Reps</span><input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+(ex.reps||'')+'" placeholder="—" /></div>' +
+        '<div class="plan-field-wrap"><span class="plan-field-label">Weight</span><input type="text" class="plan-input" id="plan-wt-'+i+'" value="'+(ex.weight||'')+'" placeholder="—" /></div>' +
+      '</div>' +
+      '<div class="plan-notes-wrap"><span class="plan-field-label">Notes</span><input type="text" class="plan-input plan-notes-input" id="plan-notes-'+i+'" value="'+(ex.notes||'')+'" placeholder="Cues, reminders…" /></div>' +
+      '<button class="remove-row-btn" onclick="removePlanRow('+i+')" style="flex-shrink:0;">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
 async function refreshPlanBanner() {
   try {
-    const savedPlan = await loadPlan();
+    const allPlans = await loadAllPlans();
     const banner = document.getElementById('plan-load-banner');
     const sel = document.getElementById('plan-load-select');
     if (!banner || !sel) return;
-    if (savedPlan && savedPlan.exercises && savedPlan.exercises.length) {
-      const exList = savedPlan.exercises.map(e => e.exercise).slice(0, 3).join(', ');
-      const more = savedPlan.exercises.length > 3 ? ' +' + (savedPlan.exercises.length - 3) + ' more' : '';
-      const label = (savedPlan.focus ? savedPlan.focus + ': ' : '') + exList + more;
+    if (allPlans.length) {
       sel.innerHTML = '<option value="">— select to load —</option>' +
-        '<option value="saved">' + label + '</option>';
+        allPlans.map((p, i) => {
+          const exList = p.exercises.map(e => e.exercise).slice(0,2).join(', ');
+          const more = p.exercises.length > 2 ? ' +' + (p.exercises.length-2) + ' more' : '';
+          const label = (p.focus ? p.focus + ': ' : '') + exList + more;
+          return '<option value="' + i + '">' + label + '</option>';
+        }).join('');
       banner.style.display = 'block';
-      window._pendingPlan = savedPlan;
+      window._allPendingPlans = allPlans;
+      window._pendingPlan = allPlans[0]; // default to most recent
     } else {
       banner.style.display = 'none';
+      window._allPendingPlans = [];
       window._pendingPlan = null;
     }
   } catch(e) { console.warn('refreshPlanBanner:', e); }
@@ -2296,9 +2356,10 @@ window.removePlanRow = function(i) {
 
 window.loadSelectedPlan = function() {
   const sel = document.getElementById('plan-load-select');
-  if (!sel || sel.value !== 'saved' || !window._pendingPlan) return;
-  applyPlanToLog(window._pendingPlan);
-  // Hide banner after loading
+  if (!sel || sel.value === '' || !window._allPendingPlans) return;
+  const plan = window._allPendingPlans[parseInt(sel.value)];
+  if (!plan) return;
+  applyPlanToLog(plan);
   document.getElementById('plan-load-banner').style.display = 'none';
   showToast('✅ Plan loaded!');
 };
