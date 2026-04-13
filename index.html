@@ -406,6 +406,39 @@
       .ex-set-row { grid-template-columns: 30px 1fr 1fr 24px; }
     }
 
+    /* ── HISTORY — LIFTLOG STYLE ── */
+    .hist-ex-block {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .hist-ex-block:last-child { border-bottom: none; }
+    .hist-ex-name {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 5px;
+    }
+    .hist-ex-name .ex-name-editable {
+      font-size: 13px; font-weight: 700; color: var(--text);
+    }
+    .hist-set-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px; padding: 3px 0 3px 8px;
+      border-left: 2px solid var(--border);
+      margin-bottom: 3px;
+    }
+    .hist-set-row:last-of-type { margin-bottom: 0; }
+    .hist-set-label {
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      min-width: 22px;
+    }
+    .hist-set-wt { color: var(--text); font-weight: 600; min-width: 60px; }
+    .hist-set-reps { color: var(--muted); min-width: 50px; }
+    .hist-set-legacy .hist-set-label { color: var(--muted); }
+    .hist-heaviest {
+      font-size: 10px; color: var(--accent);
+      padding: 3px 0 2px 8px; margin-top: 2px;
+    }
+    .hist-suggestion { margin-top: 5px; }
+
     /* ── ARCHIVE / DANGER ZONE ── */
     .danger-zone { margin-top: 28px; padding: 16px; border: 1px solid rgba(255,71,87,0.2); border-radius: var(--radius); background: rgba(255,71,87,0.04); }
     .danger-zone-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--danger); margin-bottom: 12px; }
@@ -1222,22 +1255,79 @@ function getHeaviest(session) {
   return parseFloat(session.weight);
 }
 
+function getAvgRPE(session) {
+  if (session.setsData && session.setsData.length) {
+    const rpes = session.setsData.map(s => parseFloat(s.rpe)).filter(n => !isNaN(n));
+    if (rpes.length) return rpes.reduce((a,b)=>a+b,0)/rpes.length;
+  }
+  return parseFloat(session.rpe || (session.effortScale==='rpe' ? session.effortVal : '')) || null;
+}
+
 function getSuggestion(exerciseName) {
   const exSessions = clientSessions
     .filter(s => s.exercise === exerciseName && (s.weight || s.setsData))
     .filter(s => !isNaN(getHeaviest(s)))
     .sort((a, b) => (a.date||'').localeCompare(b.date||''));
-  if (exSessions.length < 2) return exSessions.length === 1 ? '<span class="suggestion-badge sug-new">🆕 First logged — establish baseline</span>' : null;
-  const last = exSessions[exSessions.length-1], prev = exSessions[exSessions.length-2];
-  const lastW = getHeaviest(last), prevW = getHeaviest(prev);
-  const isPerSet = last.setsData && last.setsData.length > 0;
-  const lastRPE = parseFloat(last.rpe || (last.effortScale==='rpe' ? last.effortVal : '')) || null;
-  const prevRPE = parseFloat(prev.rpe || (prev.effortScale==='rpe' ? prev.effortVal : '')) || null;
-  if ((lastRPE >= 9 && prevRPE >= 9) || lastW < prevW) return '<span class="suggestion-badge sug-deload">🔁 Deload — reduce weight ~10%, focus on form</span>';
-  if ((lastRPE >= 8) || (lastW > prevW)) return '<span class="suggestion-badge sug-hold">✅ Hold — same weight, consolidate before loading</span>';
-  if (lastRPE !== null && lastRPE <= 7) { const bump = lastW >= 50 ? 5 : 2.5; const label = isPerSet ? ' (heaviest set)' : ''; return '<span class="suggestion-badge sug-progress">📈 Progress — try ' + (lastW+bump) + ' lbs' + label + '</span>'; }
-  if (lastW === prevW && exSessions.length >= 3 && parseFloat(exSessions[exSessions.length-3].weight) === lastW) return '<span class="suggestion-badge sug-progress">📈 3 sessions at ' + lastW + ' lbs — ready to progress</span>';
-  return '<span class="suggestion-badge sug-hold">✅ Consistent — hold weight, monitor RPE</span>';
+
+  if (!exSessions.length) return null;
+  if (exSessions.length === 1) return '<span class="suggestion-badge sug-new">🆕 First logged — establish baseline</span>';
+
+  // Look back up to 10 sessions
+  const window10 = exSessions.slice(-10);
+  const last = window10[window10.length - 1];
+  const lastW = getHeaviest(last);
+  const lastRPE = getAvgRPE(last);
+  const isPerSet = !!(last.setsData && last.setsData.length);
+  const heaviestLabel = isPerSet ? ' (heaviest set)' : '';
+  const bump = lastW >= 100 ? 5 : lastW >= 45 ? 2.5 : 1.25;
+
+  // Collect weights and RPEs across the window
+  const recentWeights = window10.map(s => getHeaviest(s)).filter(n => !isNaN(n));
+  const recentRPEs = window10.map(s => getAvgRPE(s)).filter(n => n !== null);
+  const avgRecentRPE = recentRPEs.length ? recentRPEs.reduce((a,b)=>a+b,0)/recentRPEs.length : null;
+
+  // Count how many consecutive sessions at the same weight
+  let sameWeightStreak = 0;
+  for (let i = window10.length - 1; i >= 0; i--) {
+    if (Math.abs(getHeaviest(window10[i]) - lastW) < 0.01) sameWeightStreak++;
+    else break;
+  }
+
+  // Check if weight has been increasing trend over window
+  const isIncreasing = recentWeights.length >= 3 &&
+    recentWeights[recentWeights.length-1] > recentWeights[0];
+
+  // Check if weight dropped last session (vs previous)
+  const prevW = window10.length >= 2 ? getHeaviest(window10[window10.length-2]) : lastW;
+  const weightDropped = lastW < prevW;
+
+  // ── Decision tree ──
+  // Deload signals: weight dropped, or RPE consistently very high (≥9)
+  if (weightDropped || (lastRPE !== null && lastRPE >= 9 && avgRecentRPE !== null && avgRecentRPE >= 8.5)) {
+    return '<span class="suggestion-badge sug-deload">🔁 Deload — reduce ~10%, focus on form</span>';
+  }
+
+  // Progress signals: stuck at same weight 3+ sessions, or RPE ≤ 6, or long plateau
+  if (sameWeightStreak >= 3 && (lastRPE === null || lastRPE <= 7)) {
+    return '<span class="suggestion-badge sug-progress">📈 Progress — ' + sameWeightStreak + ' sessions at ' + lastW + ' lbs, try ' + (lastW+bump) + ' lbs' + heaviestLabel + '</span>';
+  }
+  if (lastRPE !== null && lastRPE <= 6) {
+    return '<span class="suggestion-badge sug-progress">📈 Progress — RPE ' + lastRPE.toFixed(1) + ' leaves room, try ' + (lastW+bump) + ' lbs' + heaviestLabel + '</span>';
+  }
+  // Comfortable at weight (RPE 7) and been there 2 sessions
+  if (lastRPE !== null && lastRPE <= 7 && sameWeightStreak >= 2) {
+    return '<span class="suggestion-badge sug-progress">📈 Progress — consistent at ' + lastW + ' lbs, try ' + (lastW+bump) + ' lbs' + heaviestLabel + '</span>';
+  }
+
+  // Hold signals: just increased weight, or RPE 8, or still building
+  if (isIncreasing || (lastRPE !== null && lastRPE >= 8 && lastRPE < 9)) {
+    return '<span class="suggestion-badge sug-hold">✅ Hold — consolidate at ' + lastW + ' lbs before loading</span>';
+  }
+  if (sameWeightStreak >= 1 && lastRPE !== null && lastRPE <= 8) {
+    return '<span class="suggestion-badge sug-hold">✅ Hold — same weight, monitor RPE</span>';
+  }
+
+  return '<span class="suggestion-badge sug-hold">✅ Hold — ' + lastW + ' lbs, monitor RPE next session</span>';
 }
 
 // ── OVERVIEW ──
@@ -1690,29 +1780,42 @@ window.renderHistory = function() {
     const exRows = [...new Set(rows.map(r=>r.exercise))].map(exName => {
       const e = rows.find(r => r.exercise===exName);
       const exNote = rows.find(r => r.exercise===exName && r.exNotes)?.exNotes || '';
-      const rpeNum = parseFloat(e?.rpe||(e?.effortScale==='rpe'?e?.effortVal:''))||null;
-      const pctNum = parseFloat(e?.pct||(e?.effortScale==='pct'?e?.effortVal:''))||null;
-      const rpeClass = rpeNum?(rpeNum<=6?'rpe-easy':rpeNum<=8?'rpe-medium':'rpe-hard'):'';
-      const effortParts = [];
-      if (rpeNum) effortParts.push('<span class="rpe-badge ' + rpeClass + '">RPE ' + rpeNum + '</span>');
-      if (pctNum) effortParts.push('<span class="rpe-badge rpe-medium">' + pctNum + '%</span>');
-      const effortHTML = effortParts.length ? effortParts.join(' ') : '<span style="color:var(--muted)">—</span>';
       const sug = getSuggestion(exName);
-      return '<div class="ex-detail-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">' +
-        '<div class="ex-detail-name">' +
-        '<span class="ex-name-editable" ' +
-        'title="Double-click to edit" ' +
-        'ondblclick="startEditExName(this,\'' + (e?.id||'') + '\')">' +
-        exName +
-        '</span>' +
-        (e?.pr?'<span class="pr-tag">🏆 PR</span>':'') +
-        (sug?'<div style="margin-top:3px;">'+sug+'</div>':'') +
+      let setsHTML = '';
+      if (e?.setsData && e.setsData.length) {
+        setsHTML = e.setsData.map((s, i) => {
+          const rpeClass = s.rpe ? (parseFloat(s.rpe)<=6?'rpe-easy':parseFloat(s.rpe)<=8?'rpe-medium':'rpe-hard') : '';
+          return '<div class="hist-set-row">' +
+            '<span class="hist-set-label">S'+(i+1)+'</span>' +
+            '<span class="hist-set-wt">'+(s.weight||'—')+' lbs</span>' +
+            '<span class="hist-set-reps">'+(s.reps||'—')+' reps</span>' +
+            (s.rpe ? '<span class="rpe-badge '+rpeClass+'">RPE '+s.rpe+'</span>' : '') +
+            (s.pct ? '<span class="rpe-badge rpe-medium">'+s.pct+'%</span>' : '') +
+          '</div>';
+        }).join('');
+        const heaviest = Math.max(...e.setsData.map(s=>parseFloat(s.weight)||0));
+        if (heaviest > 0) setsHTML += '<div class="hist-heaviest">🏋 Heaviest: '+heaviest+' lbs</div>';
+      } else {
+        const rpeNum = parseFloat(e?.rpe||(e?.effortScale==='rpe'?e?.effortVal:''))||null;
+        const pctNum = parseFloat(e?.pct||(e?.effortScale==='pct'?e?.effortVal:''))||null;
+        const rpeClass = rpeNum?(rpeNum<=6?'rpe-easy':rpeNum<=8?'rpe-medium':'rpe-hard'):'';
+        setsHTML = '<div class="hist-set-row hist-set-legacy">' +
+          (e?.sets ? '<span class="hist-set-label">'+e.sets+'×</span>' : '') +
+          '<span class="hist-set-wt">'+(e?.weight||'—')+' lbs</span>' +
+          '<span class="hist-set-reps">'+(e?.reps||'—')+' reps</span>' +
+          (rpeNum ? '<span class="rpe-badge '+rpeClass+'">RPE '+rpeNum+'</span>' : '') +
+          (pctNum ? '<span class="rpe-badge rpe-medium">'+pctNum+'%</span>' : '') +
+        '</div>';
+      }
+      return '<div class="hist-ex-block">' +
+        '<div class="hist-ex-name">' +
+          '<span class="ex-name-editable" title="Double-click to edit" ondblclick="startEditExName(this,\'' + (e?.id||'') + '\')">' + exName + '</span>' +
+          (e?.pr ? '<span class="pr-tag">🏆 PR</span>' : '') +
         '</div>' +
-        '<div class="ex-detail-val">' + (e?.sets||'—') + '</div>' +
-        '<div class="ex-detail-val">' + (e?.reps||'—') + '</div>' +
-        '<div class="ex-detail-val">' + (e?.weight||'—') + '</div>' +
-        '<div class="ex-detail-val">' + effortHTML + '</div>' +
-        (exNote?'<div style="grid-column:1/-1;" class="note-line">📝 ' + exNote + '</div>':'') + '</div>';
+        setsHTML +
+        (sug ? '<div class="hist-suggestion">'+sug+'</div>' : '') +
+        (exNote ? '<div class="note-line">📝 '+exNote+'</div>' : '') +
+      '</div>';
     }).join('');
     return '<div class="history-entry">' +
       '<div class="history-entry-header" onclick="toggleDetail(' + idx + ')">' +
@@ -1726,10 +1829,7 @@ window.renderHistory = function() {
       '<div class="history-exlist">' + exNames + '</div></div>' +
       '<div class="history-right"><div class="history-badge">' + rows.length + ' ex</div><div class="history-chevron" id="chev-'+idx+'"' + (date === todayStr() ? ' style="transform:rotate(180deg)"' : '') + '>▾</div></div></div>' +
       '<div class="history-detail' + (date === todayStr() ? ' open' : '') + '" id="hd-' + idx + '">' +
-      '<div class="ex-detail-row" style="margin-bottom:5px;grid-template-columns:2fr 1fr 1fr 1fr 1fr;">' +
-      '<div class="ex-detail-header">Exercise</div><div class="ex-detail-header" style="text-align:center">Sets</div>' +
-      '<div class="ex-detail-header" style="text-align:center">Reps</div><div class="ex-detail-header" style="text-align:center">Weight</div>' +
-      '<div class="ex-detail-header" style="text-align:center">Effort</div></div>' +
+
       exRows + (note?'<div class="note-line" style="margin-top:6px;">📋 '+note+'</div>':'') + '</div></div>';
   }).join('');
 };
@@ -2214,13 +2314,21 @@ function applyPlanToLog(plan) {
   document.getElementById('exercise-rows').innerHTML = '';
   exRowCount = 0;
   plan.exercises.forEach(ex => {
-    // Build prefill sets from plan data
-    const numSets = parseInt(ex.sets) || 3;
-    const prefill = Array.from({length: numSets}, () => ({w: ex.weight||'', r: ex.reps||''}));
+    // Build prefill sets from setsData if available, else expand from sets/reps/weight
+    let prefill;
+    if (ex.setsData && ex.setsData.length) {
+      prefill = ex.setsData.map(s => ({w: s.weight||'', r: s.reps||'', rpe: s.rpe||'', pct: s.pct||''}));
+    } else {
+      const numSets = parseInt(ex.sets) || 3;
+      prefill = Array.from({length: numSets}, () => ({w: ex.weight||'', r: ex.reps||'', rpe:'', pct:''}));
+    }
     window.addExRow(prefill);
     const id = exRowCount;
     const nameEl = document.getElementById('ex-name-' + id);
     if (nameEl) nameEl.value = ex.exercise;
+    // Pre-fill note too
+    const noteEl = document.getElementById('ex-note-' + id);
+    if (noteEl && ex.notes) noteEl.value = ex.notes;
   });
   // Set session notes
   const notesEl = document.getElementById('log-session-notes');
