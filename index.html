@@ -2898,64 +2898,6 @@ async function renderAdminPanel() {
   }
 }
 
-window.createPTAccount()" style="margin-top:4px;">Create Account</button>' +
-    '</div>';
-
-    // ── Section 2: Existing PTs with inline client assignment ──
-    h += '<div class="card"><div class="card-title">👥 PT Accounts & Client Assignments</div>';
-    if (!ptUsers.length) {
-      h += '<div style="color:var(--muted);font-size:13px;padding:8px 0;">No PT accounts yet — create one above.</div>';
-    } else {
-      ptUsers.forEach(u => {
-        const assigned = clients.filter(c => c.ptId === u.id && !c.isGroup);
-        const unassigned = clients.filter(c => (!c.ptId || c.ptId === '') && !c.isGroup);
-        h += '<div class="admin-pt-block" id="pt-block-' + u.id + '">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">' +
-            '<div>' +
-              '<div style="font-weight:700;font-size:14px;">' + u.name + '</div>' +
-              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + u.email + ' · ' + assigned.length + ' client' + (assigned.length !== 1 ? 's' : '') + ' assigned</div>' +
-            '</div>' +
-            '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">✏️ Assign Clients</button>' +
-          '</div>' +
-          // Inline assignment panel (hidden by default)
-          '<div id="assign-' + u.id + '" style="display:none;padding:12px 0;">' +
-            '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Select clients for ' + u.name + '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:260px;overflow-y:auto;">' +
-              clients.filter(c => !c.isGroup).map(c =>
-                '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border-radius:7px;cursor:pointer;font-size:13px;">' +
-                  '<input type="checkbox" data-client="' + c.id + '" data-pt="' + u.id + '" ' + (c.ptId === u.id ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;" />' +
-                  c.name +
-                '</label>'
-              ).join('') +
-            '</div>' +
-            '<div style="display:flex;gap:8px;margin-top:12px;">' +
-              '<button class="btn-save" data-ptid="' + u.id + '" onclick="window.saveAssignments(this.dataset.ptid)">Save</button>' +
-              '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">Cancel</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>';
-      });
-    }
-    h += '</div>';
-
-    // ── Section 3: Unassigned clients ──
-    const unassigned = clients.filter(c => !c.isGroup && (!c.ptId || c.ptId === ''));
-    if (unassigned.length) {
-      h += '<div class="card" style="margin-top:16px;">' +
-        '<div class="card-title">⚠️ Unassigned Clients (' + unassigned.length + ')</div>' +
-        '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">These clients have no PT assigned yet.</div>' +
-        unassigned.map(c =>
-          '<div style="padding:6px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04);">' + c.name + '</div>'
-        ).join('') +
-      '</div>';
-    }
-
-    document.getElementById('admin-content').innerHTML = h;
-  } catch(e) {
-    document.getElementById('admin-content').innerHTML = '<div style="color:var(--danger);padding:16px;">Error: ' + e.message + '</div>';
-  }
-}
-
 window.toggleAssignPanel = function(ptId) {
   const panel = document.getElementById('assign-' + ptId);
   if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
