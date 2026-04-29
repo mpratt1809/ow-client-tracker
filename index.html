@@ -439,6 +439,32 @@
     }
     .hist-suggestion { margin-top: 5px; }
 
+    /* ── LOGIN SCREEN ── */
+    #login-screen { position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center; }
+    .login-wrap { width:100%;max-width:380px;padding:32px 24px;display:flex;flex-direction:column;align-items:center;gap:16px; }
+    .login-logo { display:flex;align-items:baseline;gap:2px;margin-bottom:4px; }
+    .login-logo-ow { font-family:var(--font-head);font-size:36px;font-weight:900;color:var(--text);letter-spacing:2px; }
+    .login-logo-pt { font-family:var(--font-head);font-size:36px;font-weight:900;color:var(--accent);letter-spacing:2px; }
+    .login-subtitle { font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-family:var(--font-mono);margin-bottom:8px; }
+    .login-card { width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:24px; }
+    .login-error { background:rgba(255,71,87,0.12);border:1px solid var(--danger);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--danger);margin-bottom:14px; }
+    .btn-login { width:100%;margin-top:16px;padding:14px;background:var(--accent);color:#0d0f14;font-family:var(--font-head);font-weight:900;font-size:14px;letter-spacing:2px;border:none;border-radius:8px;cursor:pointer;text-transform:uppercase; }
+    .btn-login:hover { opacity:0.9; }
+    .login-footer { font-size:10px;color:rgba(107,117,146,0.4);letter-spacing:2px;text-transform:uppercase;font-family:var(--font-mono); }
+    .login-divider { display:flex;align-items:center;gap:10px;margin:14px 0 2px;color:var(--muted);font-size:11px; }
+    .login-divider::before, .login-divider::after { content:'';flex:1;height:1px;background:var(--border); }
+    .btn-google { width:100%;margin-top:10px;padding:11px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:background 0.15s; }
+    .btn-google:hover { background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.2); }
+    /* ── USER MENU ── */
+    .user-menu-btn { background:rgba(255,255,255,0.07);border:1px solid var(--border);border-radius:20px;padding:4px 10px 4px 4px;color:var(--text);cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px; }
+    .user-avatar { width:22px;height:22px;border-radius:50%;background:var(--accent);color:#0d0f14;font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+    .user-dropdown { position:absolute;right:0;top:36px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px;min-width:170px;z-index:500;box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+    .user-dd-item { padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:6px; }
+    .user-dd-item:hover { background:rgba(255,255,255,0.07); }
+    .user-dd-signout { color:var(--danger); }
+    /* ── ADMIN PANEL ── */
+    #admin-panel { display:none; }
+
     /* ── ARCHIVE / DANGER ZONE ── */
     .danger-zone { margin-top: 28px; padding: 16px; border: 1px solid rgba(255,71,87,0.2); border-radius: var(--radius); background: rgba(255,71,87,0.04); }
     .danger-zone-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--danger); margin-bottom: 12px; }
@@ -643,6 +669,36 @@
 </head>
 <body>
 
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen" style="display:none;">
+  <div class="login-wrap">
+    <div class="login-logo"><span class="login-logo-ow">OW</span><span class="login-logo-pt">PT</span></div>
+    <div class="login-subtitle">OutWellness Client Tracker</div>
+    <div class="login-card">
+      <div id="login-error" class="login-error" style="display:none;"></div>
+      <div class="form-group"><label>Email</label>
+        <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group"><label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter') window.doLogin()" />
+      </div>
+      <button class="btn-login" onclick="window.doLogin()">Sign In</button>
+      <div class="login-divider"><span>or</span></div>
+      <button class="btn-google" onclick="window.doGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+          <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+      </button>
+    </div>
+    <div class="login-footer">Built by Meagan Pratt</div>
+  </div>
+</div>
+
 <!-- LOADING -->
 <div id="loading-screen">
   <div class="loading-logo">OW<span>PT</span></div>
@@ -690,7 +746,19 @@
     </div>
     <div class="header-right">
       <div class="header-date" id="header-date"></div>
-      <div class="header-pill" id="header-pill"></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="header-pill" id="header-pill"></div>
+        <div id="user-menu" style="display:none;position:relative;">
+          <button id="user-btn" onclick="window.toggleUserMenu()" class="user-menu-btn">
+            <span id="user-initials" class="user-avatar"></span>
+            <span id="user-name-label" style="font-size:11px;"></span>
+          </button>
+          <div id="user-dropdown" class="user-dropdown" style="display:none;">
+            <div id="admin-link" class="user-dd-item" style="display:none;" onclick="window.showAdminPanel()">⚙️ User Management</div>
+            <div class="user-dd-item user-dd-signout" onclick="window.doLogout()">↩ Sign Out</div>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
   <nav class="tab-nav">
@@ -848,6 +916,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, getDocsFromServer, doc, setDoc, deleteDoc, updateDoc, query, where, writeBatch, getDoc, limit }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ── EXERCISE NAME FIXES ──
 const EXERCISE_FIXES = {"3-way shoulder":"3-way shoulders","back squat":"Back squats","deadlift":"Deadlifts","plank":"Planks","squat":"Squats","tricep extension":"Tricep extensions","squats to bench":"Squat to bench","deadllifts":"Deadlifts","bicep curls on cable macine":"Bicep curls on cable","stir the pots":"Stir the pot","preacher's curls":"Preacher curls","oh triceps extension":"OH tricep extension","bench press dropsets":"Bench press drop set","back squats to bench":"Squat to bench","high plank holds":"High planks"};
@@ -873,6 +943,13 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
+
+// ── Auth State ──
+let currentUser = null;
+let currentUserRole = null;
+let currentUserData = null;
+const ADMIN_EMAIL = 'mpratt1809@gmail.com';
 
 // ── State ──
 let allClients = [];
@@ -1127,10 +1204,14 @@ async function seedMissingClients(missingClients) {
 // ── LOAD CLIENTS ──
 async function loadClients() {
   const snap = await withTimeout(getDocs(collection(db, 'clients')), 10000, 'load clients');
-  allClients = snap.docs.map(d => ({ id: d.id, ...d.data(), sessionCount: d.data().sessionCount||0, lastDate: d.data().lastDate||'' }));
-  allClients.sort((a, b) => a.name.localeCompare(b.name));
+  let clients = snap.docs.map(d => ({ id: d.id, ...d.data(), sessionCount: d.data().sessionCount||0, lastDate: d.data().lastDate||'' }));
+  // PT users only see their assigned clients
+  if (currentUserRole === 'pt' && currentUser) {
+    clients = clients.filter(c => c.ptId === currentUser.uid);
+  }
+  allClients = clients.sort((a, b) => a.name.localeCompare(b.name));
   renderClientGrid();
-  // Always resync counts in background to catch stale cached values
+  // Always resync counts in background
   loadSessionCounts();
 }
 
@@ -2476,6 +2557,254 @@ window.addPlanExercise = function() {
 };
 
 
+// ── AUTH FUNCTIONS ──
+
+async function resolveUserRole(user) {
+  // Check if admin by email
+  if (user.email === ADMIN_EMAIL) {
+    currentUserRole = 'admin';
+    currentUserData = { email: user.email, name: 'Meagan Pratt', role: 'admin' };
+    updateUserMenuUI();
+    return;
+  }
+  // Look up role in users collection
+  try {
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (snap.exists()) {
+      currentUserData = snap.data();
+      currentUserRole = currentUserData.role || 'pt';
+    } else {
+      // New user not yet set up — create basic PT record
+      currentUserData = { email: user.email, name: user.displayName || user.email.split('@')[0], role: 'pt', assignedClients: [] };
+      await setDoc(doc(db, 'users', user.uid), { ...currentUserData, createdAt: new Date().toISOString() });
+      currentUserRole = 'pt';
+    }
+  } catch(e) {
+    console.error('resolveUserRole error:', e);
+    currentUserRole = 'pt';
+  }
+  updateUserMenuUI();
+}
+
+function updateUserMenuUI() {
+  const menu = document.getElementById('user-menu');
+  const nameLabel = document.getElementById('user-name-label');
+  const initials = document.getElementById('user-initials');
+  const adminLink = document.getElementById('admin-link');
+  if (!menu) return;
+  menu.style.display = 'block';
+  const name = currentUserData?.name || currentUser?.email || '';
+  nameLabel.textContent = name.split(' ')[0];
+  initials.textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if (adminLink) adminLink.style.display = currentUserRole === 'admin' ? 'block' : 'none';
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('client-select').classList.remove('visible');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('app').className = '';
+  document.getElementById('user-menu').style.display = 'none';
+  setTimeout(() => document.getElementById('login-email')?.focus(), 100);
+}
+
+window.doLogin = async function() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.querySelector('.btn-login');
+  if (!email || !password) { errEl.textContent = 'Please enter email and password.'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  btn.textContent = 'Signing in…'; btn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged will handle the rest
+  } catch(e) {
+    btn.textContent = 'Sign In'; btn.disabled = false;
+    const msgs = { 'auth/user-not-found': 'No account found with that email.', 'auth/wrong-password': 'Incorrect password.', 'auth/invalid-email': 'Invalid email address.', 'auth/too-many-requests': 'Too many attempts. Try again later.' };
+    errEl.textContent = msgs[e.code] || 'Sign in failed. Please try again.';
+    errEl.style.display = 'block';
+  }
+};
+
+window.doGoogleLogin = async function() {
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged handles the rest
+  } catch(e) {
+    if (e.code === 'auth/popup-closed-by-user') return; // user cancelled, no error needed
+    const msgs = {
+      'auth/popup-blocked': 'Popup was blocked. Please allow popups for this site.',
+      'auth/unauthorized-domain': 'This domain is not authorized. Contact the admin.',
+    };
+    errEl.textContent = msgs[e.code] || 'Google sign-in failed: ' + e.message;
+    errEl.style.display = 'block';
+  }
+};
+
+window.doLogout = async function() {
+  window.toggleUserMenu();
+  await signOut(auth);
+  // onAuthStateChanged will show login screen
+};
+
+window.toggleUserMenu = function() {
+  const dd = document.getElementById('user-dropdown');
+  if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+};
+
+// Close user dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('user-menu');
+  if (menu && !menu.contains(e.target)) {
+    const dd = document.getElementById('user-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+// ── USER MANAGEMENT (Admin only) ──
+window.showAdminPanel = function() {
+  window.toggleUserMenu();
+  document.getElementById('client-select').classList.remove('visible');
+  renderAdminPanel();
+  document.getElementById('admin-panel').style.display = 'block';
+};
+
+window.hideAdminPanel = function() {
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('client-select').classList.add('visible');
+};
+
+async function renderAdminPanel() {
+  const panel = document.getElementById('admin-panel');
+  panel.innerHTML = '<div style="max-width:700px;margin:0 auto;padding:24px 16px;">' +
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">' +
+      '<button onclick="window.hideAdminPanel()" class="back-btn">← Back</button>' +
+      '<div class="section-head" style="margin:0;">USER MANAGEMENT</div>' +
+    '</div>' +
+    '<div id="admin-content"><div class="spinner"></div></div>' +
+  '</div>';
+
+  // Load all PT users
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === 'pt');
+    // Load all clients for assignment
+    const clientsSnap = await getDocs(collection(db, 'clients'));
+    const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>a.name.localeCompare(b.name));
+
+    let html = '<div class="card" style="margin-bottom:16px;">' +
+      '<div class="card-title">➕ Create PT Account</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group"><label>Name</label><input type="text" id="new-pt-name" placeholder="Full name" /></div>' +
+        '<div class="form-group"><label>Email</label><input type="email" id="new-pt-email" placeholder="pt@email.com" /></div>' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group"><label>Password</label><input type="password" id="new-pt-pw" placeholder="Temporary password" /></div>' +
+      '</div>' +
+      '<button class="btn-save" onclick="window.createPTAccount()" style="margin-top:8px;">Create Account</button>' +
+    '</div>';
+
+    html += '<div class="card"><div class="card-title">👥 PT Accounts</div>';
+    if (!users.length) {
+      html += '<div style="color:var(--muted);font-size:13px;">No PT accounts yet.</div>';
+    } else {
+      users.forEach(u => {
+        const assignedCount = clients.filter(c => c.ptId === u.id).length;
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">' +
+          '<div><div style="font-weight:700;">' + u.name + '</div><div style="font-size:12px;color:var(--muted);">' + u.email + ' · ' + assignedCount + ' clients</div></div>' +
+          '<button class="btn-add-row" onclick="window.showAssignClients('' + u.id + '','' + u.name + '')" style="margin:0;">Assign Clients</button>' +
+        '</div>';
+      });
+    }
+    html += '</div>';
+
+    // Client assignment modal placeholder
+    html += '<div id="assign-modal" style="display:none;margin-top:16px;" class="card">' +
+      '<div class="card-title" id="assign-title">Assign Clients</div>' +
+      '<div id="assign-client-list" style="max-height:300px;overflow-y:auto;"></div>' +
+      '<div style="display:flex;gap:10px;margin-top:12px;">' +
+        '<button class="btn-save" onclick="window.saveClientAssignments()">Save Assignments</button>' +
+        '<button class="btn-add-row" onclick="document.getElementById('assign-modal').style.display='none'">Cancel</button>' +
+      '</div>' +
+    '</div>';
+
+    // Store clients for assignment
+    window._adminClients = clients;
+
+    document.getElementById('admin-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('admin-content').innerHTML = '<div style="color:var(--danger);">Error loading users: ' + e.message + '</div>';
+  }
+}
+
+window._currentAssignPtId = null;
+
+window.showAssignClients = function(ptId, ptName) {
+  window._currentAssignPtId = ptId;
+  document.getElementById('assign-title').textContent = 'Assign Clients to ' + ptName;
+  const clients = window._adminClients || [];
+  document.getElementById('assign-client-list').innerHTML = clients.filter(c => !c.isGroup).map(c =>
+    '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">' +
+      '<input type="checkbox" id="ac-' + c.id + '" ' + (c.ptId === ptId ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;" />' +
+      '<label for="ac-' + c.id + '" style="cursor:pointer;">' + c.name + '</label>' +
+    '</div>'
+  ).join('');
+  document.getElementById('assign-modal').style.display = 'block';
+};
+
+window.saveClientAssignments = async function() {
+  const ptId = window._currentAssignPtId;
+  if (!ptId) return;
+  const clients = window._adminClients || [];
+  const batch = writeBatch(db);
+  clients.filter(c => !c.isGroup).forEach(c => {
+    const checked = document.getElementById('ac-' + c.id)?.checked;
+    const currentPtId = c.ptId;
+    if (checked && currentPtId !== ptId) {
+      batch.update(doc(db, 'clients', c.id), { ptId });
+      c.ptId = ptId;
+    } else if (!checked && currentPtId === ptId) {
+      batch.update(doc(db, 'clients', c.id), { ptId: '' });
+      c.ptId = '';
+    }
+  });
+  await batch.commit();
+  showToast('✅ Client assignments saved');
+  document.getElementById('assign-modal').style.display = 'none';
+  renderAdminPanel(); // refresh
+};
+
+window.createPTAccount = async function() {
+  const name = document.getElementById('new-pt-name').value.trim();
+  const email = document.getElementById('new-pt-email').value.trim();
+  const pw = document.getElementById('new-pt-pw').value;
+  if (!name || !email || !pw) return showToast('⚠️ All fields required');
+  try {
+    // Create secondary auth instance to avoid logging out current admin
+    const secondaryApp = initializeApp(firebaseConfig, 'secondary-' + Date.now());
+    const secondaryAuth = getAuth(secondaryApp);
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pw);
+    await updateProfile(cred.user, { displayName: name });
+    await setDoc(doc(db, 'users', cred.user.uid), {
+      email, name, role: 'pt', assignedClients: [], createdAt: new Date().toISOString()
+    });
+    await signOut(secondaryAuth);
+    showToast('✅ PT account created for ' + name);
+    document.getElementById('new-pt-name').value = '';
+    document.getElementById('new-pt-email').value = '';
+    document.getElementById('new-pt-pw').value = '';
+    renderAdminPanel();
+  } catch(e) {
+    const msgs = { 'auth/email-already-in-use': 'That email is already in use.', 'auth/weak-password': 'Password must be at least 6 characters.' };
+    showToast('⚠️ ' + (msgs[e.code] || e.message));
+  }
+};
+
 // ── EDIT EXERCISE NAME IN HISTORY ──
 window.startEditExName = function(span, sessionId) {
   if (!sessionId) return showToast('Cannot edit — session ID missing');
@@ -2685,8 +3014,21 @@ window.saveGoals = async function() {
   window.closeModal(); renderOverview(); showToast('✅ Goals updated!');
 };
 
-// ── KICK OFF ──
-init();
+// ── KICK OFF — Auth gate ──
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    await resolveUserRole(user);
+    document.getElementById('login-screen').style.display = 'none';
+    init();
+  } else {
+    currentUser = null; currentUserRole = null; currentUserData = null;
+    showLoginScreen();
+  }
+});
 </script>
+  <!-- ── ADMIN PANEL ── -->
+  <div id="admin-panel" style="display:none;min-height:100vh;background:var(--bg);"></div>
+
 </body>
 </html>
