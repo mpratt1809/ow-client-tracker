@@ -725,7 +725,7 @@
 </div>
 
 <!-- LOADING -->
-<div id="loading-screen">
+<div id="loading-screen" style="display:none;">
   <div class="loading-logo">OW<span>PT</span></div>
   <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
   <div class="loading-msg" id="loading-msg">Initializing…</div>
@@ -735,7 +735,19 @@
 <div id="client-select">
   <div class="select-topbar">
     <div class="select-logo">OW<span>PT</span></div>
-    <div class="select-date" id="select-date"></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="select-date" id="select-date"></div>
+      <div id="user-menu-selector" style="display:none;position:relative;">
+        <button onclick="window.toggleUserMenuSelector()" class="user-menu-btn">
+          <span id="user-initials-selector" class="user-avatar"></span>
+          <span id="user-name-selector" style="font-size:11px;"></span>
+        </button>
+        <div id="user-dropdown-selector" class="user-dropdown" style="display:none;">
+          <div id="admin-link-selector" style="display:none;" class="user-dd-item" onclick="window.showAdminPanel()">⚙️ User Management</div>
+          <div class="user-dd-item user-dd-signout" onclick="window.doLogout()">↩ Sign Out</div>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="select-header">
     <h1>CLIENT<span>S</span></h1>
@@ -2619,18 +2631,36 @@ async function resolveUserRole(user) {
 }
 
 function updateUserMenuUI() {
-  const menu = document.getElementById('user-menu');
-  const nameLabel = document.getElementById('user-name-label');
-  const initials = document.getElementById('user-initials');
-  const adminLink = document.getElementById('admin-link');
-  if (!menu) return;
-  menu.style.display = 'block';
   const name = currentUserData?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || '';
   const roleLabel = currentUserRole === 'admin' ? 'Admin' : 'PT';
   const firstName = name.split(' ')[0];
-  nameLabel.textContent = firstName + ' · ' + roleLabel;
-  initials.textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  if (adminLink) adminLink.style.display = currentUserRole === 'admin' ? 'block' : 'none';
+  const label = firstName + ' · ' + roleLabel;
+  const initStr = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const isAdmin = currentUserRole === 'admin';
+
+  // ── App header menu (inside client view) ──
+  const menu = document.getElementById('user-menu');
+  if (menu) {
+    menu.style.display = 'block';
+    const nameLabel = document.getElementById('user-name-label');
+    const initials = document.getElementById('user-initials');
+    const adminLink = document.getElementById('admin-link');
+    if (nameLabel) nameLabel.textContent = label;
+    if (initials) initials.textContent = initStr;
+    if (adminLink) adminLink.style.display = isAdmin ? 'block' : 'none';
+  }
+
+  // ── Selector topbar menu (client grid screen) ──
+  const selectorMenu = document.getElementById('user-menu-selector');
+  if (selectorMenu) {
+    selectorMenu.style.display = 'block';
+    const selectorName = document.getElementById('user-name-selector');
+    const selectorInitials = document.getElementById('user-initials-selector');
+    const selectorAdminLink = document.getElementById('admin-link-selector');
+    if (selectorName) selectorName.textContent = label;
+    if (selectorInitials) selectorInitials.textContent = initStr;
+    if (selectorAdminLink) selectorAdminLink.style.display = isAdmin ? 'block' : 'none';
+  }
 }
 
 function showLoginScreen() {
@@ -2724,6 +2754,11 @@ window.doLogout = async function() {
   // onAuthStateChanged will show login screen
 };
 
+window.toggleUserMenuSelector = function() {
+  const dd = document.getElementById('user-dropdown-selector');
+  if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+};
+
 window.toggleUserMenu = function() {
   const dd = document.getElementById('user-dropdown');
   if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
@@ -2735,6 +2770,11 @@ document.addEventListener('click', function(e) {
   if (menu && !menu.contains(e.target)) {
     const dd = document.getElementById('user-dropdown');
     if (dd) dd.style.display = 'none';
+  }
+  const menuSel = document.getElementById('user-menu-selector');
+  if (menuSel && !menuSel.contains(e.target)) {
+    const ddSel = document.getElementById('user-dropdown-selector');
+    if (ddSel) ddSel.style.display = 'none';
   }
 });
 
@@ -2975,7 +3015,7 @@ window.sendPasswordReset = async function(email, name) {
 window.confirmDeactivate = function(ptId, name) {
   showConfirmModal(
     '🚫 Deactivate ' + name,
-    'This will disable ' + name + '\u2019s access and unassign all their clients. Clients will appear as unassigned. This can be reversed.',
+    'This will disable ' + name + '\'s access and unassign all their clients. Clients will appear as unassigned. This can be reversed.',
     () => window.deactivatePT(ptId, name)
   );
 };
@@ -3246,12 +3286,18 @@ window.saveGoals = async function() {
   window.closeModal(); renderOverview(); showToast('✅ Goals updated!');
 };
 
-// ── KICK OFF — Auth gate ──
+// ── KICK OFF — Show login immediately, then check auth ──
+// Show login screen right away so user isn't stuck on blank/loading screen
+document.getElementById('login-screen').style.display = 'flex';
+document.getElementById('loading-screen').style.display = 'none';
+
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
-    await resolveUserRole(user);
+    // Hide login, show loading while we resolve role + init
     document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('loading-screen').style.display = 'flex';
+    await resolveUserRole(user);
     init();
   } else {
     currentUser = null; currentUserRole = null; currentUserData = null;
