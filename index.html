@@ -1232,6 +1232,13 @@ async function loadClients() {
   let clients = snap.docs.map(d => ({ id: d.id, ...d.data(), sessionCount: d.data().sessionCount||0, lastDate: d.data().lastDate||'' }));
   // PT users only see their assigned clients
   if (currentUserRole === 'pt' && currentUser) {
+    // Check if this PT is active
+    if (currentUserData?.active === false) {
+      // Deactivated PT — show message and sign out
+      showToast('⚠️ Your account has been deactivated. Contact your admin.');
+      setTimeout(() => signOut(auth), 2000);
+      return;
+    }
     clients = clients.filter(c => c.ptId === currentUser.uid);
   }
   allClients = clients.sort((a, b) => a.name.localeCompare(b.name));
@@ -2618,8 +2625,10 @@ function updateUserMenuUI() {
   const adminLink = document.getElementById('admin-link');
   if (!menu) return;
   menu.style.display = 'block';
-  const name = currentUserData?.name || currentUser?.email || '';
-  nameLabel.textContent = name.split(' ')[0];
+  const name = currentUserData?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || '';
+  const roleLabel = currentUserRole === 'admin' ? 'Admin' : 'PT';
+  const firstName = name.split(' ')[0];
+  nameLabel.textContent = firstName + ' · ' + roleLabel;
   initials.textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   if (adminLink) adminLink.style.display = currentUserRole === 'admin' ? 'block' : 'none';
 }
@@ -2743,7 +2752,7 @@ window.hideAdminPanel = function() {
 async function renderAdminPanel() {
   const panel = document.getElementById('admin-panel');
   panel.innerHTML =
-    '<div style="max-width:720px;margin:0 auto;padding:24px 16px;">' +
+    '<div style="max-width:760px;margin:0 auto;padding:24px 16px;">' +
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;">' +
         '<button onclick="window.hideAdminPanel()" class="back-btn">← Back</button>' +
         '<div class="section-head" style="margin:0;">USER MANAGEMENT</div>' +
@@ -2756,13 +2765,30 @@ async function renderAdminPanel() {
       getDocs(collection(db, 'users')),
       getDocs(collection(db, 'clients'))
     ]);
-    const ptUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role === 'pt');
-    const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.name.localeCompare(b.name));
+    const allUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const ptUsers = allUsers.filter(u => u.role === 'pt');
+    const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(c => !c.isGroup)
+      .sort((a,b) => a.name.localeCompare(b.name));
     window._adminClients = clients;
     window._adminPtUsers = ptUsers;
 
-    // ── Section 1: Invite / Create PT ──
-    let h = '<div class="card" style="margin-bottom:16px;">' +
+    let h = '';
+
+    // ── Section 1: Admin account ──
+    h += '<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">' +
+      '<div class="card-title" style="margin-bottom:8px;">👑 Admin Account</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<div>' +
+          '<div style="font-weight:700;">' + (currentUserData?.name || 'Admin') + '</div>' +
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (currentUser?.email || '') + ' · Full access</div>' +
+        '</div>' +
+        '<span class="suggestion-badge sug-progress" style="font-size:11px;">Admin</span>' +
+      '</div>' +
+    '</div>';
+
+    // ── Section 2: Add PT Account ──
+    h += '<div class="card" style="margin-bottom:16px;">' +
       '<div class="card-title">➕ Add PT Account</div>' +
       '<p style="font-size:12px;color:var(--muted);margin:0 0 14px;">Create a login for a new PT. They can change their password after first sign-in.</p>' +
       '<div class="form-row">' +
@@ -2773,6 +2799,106 @@ async function renderAdminPanel() {
         '<div class="form-group"><label>Temporary Password</label><input type="password" id="new-pt-pw" placeholder="Min 6 characters" /></div>' +
       '</div>' +
       '<button class="btn-save" onclick="window.createPTAccount()" style="margin-top:4px;">Create Account</button>' +
+    '</div>';
+
+    // ── Section 3: PT Accounts ──
+    h += '<div class="card" style="margin-bottom:16px;">' +
+      '<div class="card-title">👥 PT Accounts & Client Assignments</div>';
+
+    if (!ptUsers.length) {
+      h += '<div style="color:var(--muted);font-size:13px;padding:8px 0;">No PT accounts yet — create one above.</div>';
+    } else {
+      ptUsers.forEach(u => {
+        const assigned = clients.filter(c => c.ptId === u.id);
+        const isActive = u.active !== false; // default active
+        const lastLogin = u.lastLogin ? fmtDate(u.lastLogin.split('T')[0]) : 'Never';
+        const sessCount = u.sessionCount || 0;
+
+        h += '<div style="border-bottom:1px solid var(--border);padding:14px 0;" id="pt-row-' + u.id + '">' +
+          // PT header row
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
+            '<div style="flex:1;">' +
+              '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-weight:700;font-size:14px;">' + u.name + '</span>' +
+                (isActive
+                  ? '<span class="suggestion-badge sug-hold" style="font-size:10px;">Active</span>'
+                  : '<span class="suggestion-badge sug-deload" style="font-size:10px;">Inactive</span>') +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:3px;">' +
+                u.email + ' · ' + assigned.length + ' client' + (assigned.length !== 1 ? 's' : '') +
+                ' · Last login: ' + lastLogin +
+              '</div>' +
+            '</div>' +
+            // Action buttons
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
+              '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">✏️ Assign</button>' +
+              '<button class="ex-set-btn" data-ptemail="' + u.email + '" data-ptname="' + u.name + '" onclick="window.confirmResetPassword(this.dataset.ptemail, this.dataset.ptname)">🔑 Reset PW</button>' +
+              (isActive
+                ? '<button class="ex-set-btn" style="color:var(--danger);" data-ptid="' + u.id + '" data-ptname="' + u.name + '" onclick="window.confirmDeactivate(this.dataset.ptid, this.dataset.ptname)">🚫 Deactivate</button>'
+                : '<button class="ex-set-btn" style="color:#4caf50;" data-ptid="' + u.id + '" data-ptname="' + u.name + '" onclick="window.reactivatePT(this.dataset.ptid, this.dataset.ptname)">✅ Reactivate</button>') +
+            '</div>' +
+          '</div>' +
+          // Inline assign panel
+          '<div id="assign-' + u.id + '" style="display:none;margin-top:12px;background:var(--surface);border-radius:10px;padding:14px;">' +
+            '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Assign clients to ' + u.name + '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:280px;overflow-y:auto;">' +
+              clients.map(c =>
+                '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:13px;">' +
+                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (c.ptId === u.id ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;" />' +
+                  c.name + (c.ptId && c.ptId !== u.id ? ' <span style="font-size:10px;color:var(--muted);">(assigned to other PT)</span>' : '') +
+                '</label>'
+              ).join('') +
+            '</div>' +
+            '<div style="display:flex;gap:8px;margin-top:12px;">' +
+              '<button class="btn-save" data-ptid="' + u.id + '" onclick="window.saveAssignments(this.dataset.ptid)">Save</button>' +
+              '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">Cancel</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      });
+    }
+    h += '</div>';
+
+    // ── Section 4: Unassigned clients — each has a PT picker ──
+    const unassigned = clients.filter(c => !c.ptId || c.ptId === '');
+    if (unassigned.length) {
+      h += '<div class="card">' +
+        '<div class="card-title">⚠️ Unassigned Clients (' + unassigned.length + ')</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Assign each client to a PT directly here.</div>' +
+        unassigned.map(c =>
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">' +
+            '<span style="font-size:13px;">' + c.name + '</span>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<select class="quick-assign-sel" data-clientid="' + c.id + '" style="font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);">' +
+                '<option value="">— Select PT —</option>' +
+                ptUsers.map(u => '<option value="' + u.id + '">' + u.name + '</option>').join('') +
+              '</select>' +
+              '<button class="ex-set-btn" data-clientid="' + c.id + '" onclick="window.quickAssign(this.dataset.clientid)">Assign</button>' +
+            '</div>' +
+          '</div>'
+        ).join('') +
+      '</div>';
+    }
+
+    // ── Confirmation modal ──
+    h += '<div id="admin-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:none;align-items:center;justify-content:center;">' +
+      '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:380px;width:90%;text-align:center;">' +
+        '<div id="confirm-modal-title" style="font-size:16px;font-weight:700;margin-bottom:10px;"></div>' +
+        '<div id="confirm-modal-body" style="font-size:13px;color:var(--muted);margin-bottom:20px;"></div>' +
+        '<div style="display:flex;gap:10px;justify-content:center;">' +
+          '<button id="confirm-modal-ok" class="btn-save" style="min-width:100px;">Confirm</button>' +
+          '<button onclick="window.closeConfirmModal()" class="ex-set-btn" style="min-width:80px;">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    document.getElementById('admin-content').innerHTML = h;
+  } catch(e) {
+    document.getElementById('admin-content').innerHTML = '<div style="color:var(--danger);padding:16px;">Error: ' + e.message + '</div>';
+  }
+}
+
+window.createPTAccount()" style="margin-top:4px;">Create Account</button>' +
     '</div>';
 
     // ── Section 2: Existing PTs with inline client assignment ──
@@ -2836,63 +2962,112 @@ window.toggleAssignPanel = function(ptId) {
 };
 
 window.saveAssignments = async function(ptId) {
-  const checkboxes = document.querySelectorAll('[data-pt="' + ptId + '"]');
+  const checkboxes = document.querySelectorAll('.assign-cb-' + ptId);
   const batch = writeBatch(db);
   const clients = window._adminClients || [];
+  let changed = 0;
   checkboxes.forEach(cb => {
     const clientId = cb.dataset.client;
     const client = clients.find(c => c.id === clientId);
     if (!client) return;
     if (cb.checked && client.ptId !== ptId) {
       batch.update(doc(db, 'clients', clientId), { ptId });
-      client.ptId = ptId;
+      client.ptId = ptId; changed++;
     } else if (!cb.checked && client.ptId === ptId) {
       batch.update(doc(db, 'clients', clientId), { ptId: '' });
-      client.ptId = '';
+      client.ptId = ''; changed++;
     }
   });
-  await batch.commit();
-  showToast('✅ Client assignments saved');
+  if (changed) await batch.commit();
+  showToast('✅ ' + changed + ' client' + (changed !== 1 ? 's' : '') + ' updated');
   window.toggleAssignPanel(ptId);
-  renderAdminPanel(); // refresh counts
+  renderAdminPanel();
 };
 
-window._currentAssignPtId = null;
-
-window.showAssignClients = function(ptId, ptName) {
-  window._currentAssignPtId = ptId;
-  document.getElementById('assign-title').textContent = 'Assign Clients to ' + ptName;
-  const clients = window._adminClients || [];
-  document.getElementById('assign-client-list').innerHTML = clients.filter(c => !c.isGroup).map(c =>
-    '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">' +
-      '<input type="checkbox" id="ac-' + c.id + '" ' + (c.ptId === ptId ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;" />' +
-      '<label for="ac-' + c.id + '" style="cursor:pointer;">' + c.name + '</label>' +
-    '</div>'
-  ).join('');
-  document.getElementById('assign-modal').style.display = 'block';
+window.quickAssign = async function(clientId) {
+  const sel = document.querySelector('[data-clientid="' + clientId + '"].quick-assign-sel');
+  if (!sel || !sel.value) return showToast('⚠️ Please select a PT first');
+  const ptId = sel.value;
+  await updateDoc(doc(db, 'clients', clientId), { ptId });
+  const client = (window._adminClients||[]).find(c => c.id === clientId);
+  if (client) client.ptId = ptId;
+  showToast('✅ Client assigned');
+  renderAdminPanel();
 };
 
-window.saveClientAssignments = async function() {
-  const ptId = window._currentAssignPtId;
-  if (!ptId) return;
-  const clients = window._adminClients || [];
-  const batch = writeBatch(db);
-  clients.filter(c => !c.isGroup).forEach(c => {
-    const checked = document.getElementById('ac-' + c.id)?.checked;
-    const currentPtId = c.ptId;
-    if (checked && currentPtId !== ptId) {
-      batch.update(doc(db, 'clients', c.id), { ptId });
-      c.ptId = ptId;
-    } else if (!checked && currentPtId === ptId) {
+// ── Confirmation modal helpers ──
+window.closeConfirmModal = function() {
+  const m = document.getElementById('admin-confirm-modal');
+  if (m) { m.style.display = 'none'; }
+};
+
+function showConfirmModal(title, body, onConfirm) {
+  const m = document.getElementById('admin-confirm-modal');
+  if (!m) return;
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-body').textContent = body;
+  document.getElementById('confirm-modal-ok').onclick = () => { window.closeConfirmModal(); onConfirm(); };
+  m.style.display = 'flex';
+}
+
+// ── Password reset ──
+window.confirmResetPassword = function(email, name) {
+  showConfirmModal(
+    '🔑 Reset Password',
+    'Send a password reset email to ' + name + ' (' + email + ')?',
+    () => window.sendPasswordReset(email, name)
+  );
+};
+
+window.sendPasswordReset = async function(email, name) {
+  try {
+    const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+    await sendPasswordResetEmail(auth, email);
+    showToast('✅ Reset email sent to ' + name);
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
+  }
+};
+
+// ── Deactivate PT ──
+window.confirmDeactivate = function(ptId, name) {
+  showConfirmModal(
+    '🚫 Deactivate ' + name,
+    'This will disable ' + name + ''s access and unassign all their clients. Clients will appear as unassigned. This can be reversed.',
+    () => window.deactivatePT(ptId, name)
+  );
+};
+
+window.deactivatePT = async function(ptId, name) {
+  try {
+    const batch = writeBatch(db);
+    // Mark PT as inactive
+    batch.update(doc(db, 'users', ptId), { active: false });
+    // Unassign all their clients
+    const assigned = (window._adminClients||[]).filter(c => c.ptId === ptId);
+    assigned.forEach(c => {
       batch.update(doc(db, 'clients', c.id), { ptId: '' });
       c.ptId = '';
-    }
-  });
-  await batch.commit();
-  showToast('✅ Client assignments saved');
-  document.getElementById('assign-modal').style.display = 'none';
-  renderAdminPanel(); // refresh
+    });
+    await batch.commit();
+    showToast('✅ ' + name + ' deactivated — ' + assigned.length + ' clients unassigned');
+    renderAdminPanel();
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
+  }
 };
+
+// ── Reactivate PT ──
+window.reactivatePT = async function(ptId, name) {
+  try {
+    await updateDoc(doc(db, 'users', ptId), { active: true });
+    showToast('✅ ' + name + ' reactivated');
+    renderAdminPanel();
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
+  }
+};
+
 
 window.createPTAccount = async function() {
   const name = document.getElementById('new-pt-name').value.trim();
