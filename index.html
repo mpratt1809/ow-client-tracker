@@ -2975,7 +2975,7 @@ window.sendPasswordReset = async function(email, name) {
 window.confirmDeactivate = function(ptId, name) {
   showConfirmModal(
     '🚫 Deactivate ' + name,
-    'This will disable ' + name + ''s access and unassign all their clients. Clients will appear as unassigned. This can be reversed.',
+    'This will disable ' + name + '\u2019s access and unassign all their clients. Clients will appear as unassigned. This can be reversed.',
     () => window.deactivatePT(ptId, name)
   );
 };
