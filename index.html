@@ -1582,6 +1582,10 @@ async function initLogForm() {
   const weeks = clientSessions.map(s => s.week).filter(w => w!==null && w!==undefined).map(Number).filter(n => !isNaN(n));
   const maxWeek = weeks.length ? Math.max(...weeks) : 0;
   document.getElementById('log-week').value = maxWeek + 1;
+  // Recalculate week when date changes
+  document.getElementById('log-date').addEventListener('change', function() {
+    recalcWeekForDate(this.value);
+  });
   if (currentClient.defaultFocus) document.getElementById('log-focus').value = currentClient.defaultFocus;
   document.getElementById('exercise-rows').innerHTML = '';
   exRowCount = 0;
@@ -1786,6 +1790,36 @@ window.exKeyNav = function(event, id) {
   else if (event.key === 'Enter' && exFocusIdx >= 0) { event.preventDefault(); const f = items[exFocusIdx]; if (f) window.selectExSuggestion(id, f.dataset.name||f.textContent.trim()); exFocusIdx = -1; }
   else if (event.key === 'Escape') { closeSuggestions(id); exFocusIdx = -1; }
 };
+
+function recalcWeekForDate(dateStr) {
+  if (!dateStr || !clientSessions.length) return;
+  // Find if a session already exists on this date — use its week
+  const existingOnDate = clientSessions.find(s => s.date === dateStr);
+  if (existingOnDate && existingOnDate.week) {
+    document.getElementById('log-week').value = existingOnDate.week;
+    return;
+  }
+  // Find the closest date before this one and use week+1 if it's a new week
+  const sorted = [...new Set(clientSessions.map(s => s.date).filter(Boolean))].sort();
+  const before = sorted.filter(d => d <= dateStr);
+  const after = sorted.filter(d => d > dateStr);
+  if (!before.length) {
+    // Backdating before all sessions — week 1
+    document.getElementById('log-week').value = 1;
+    return;
+  }
+  const closestBefore = before[before.length - 1];
+  const closestBeforeSession = clientSessions.find(s => s.date === closestBefore);
+  const closestBeforeWeek = parseInt(closestBeforeSession?.week) || 0;
+  // Check if same calendar week
+  const d1 = new Date(closestBefore), d2 = new Date(dateStr);
+  const diffDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+  if (diffDays < 7 && d1.getDay() <= d2.getDay()) {
+    document.getElementById('log-week').value = closestBeforeWeek;
+  } else {
+    document.getElementById('log-week').value = closestBeforeWeek + 1;
+  }
+}
 
 window.saveSession = async function() {
   if (!currentClient) return;
@@ -3267,7 +3301,9 @@ window.saveNewClient = async function() {
   const btn=document.getElementById('modal-save-btn');
   btn.disabled=true; btn.textContent='Saving…';
   try {
-    await addDoc(collection(db,'clients'),{name,goals,defaultFocus,pronouns,isGroup:isNewGroup,isArchived:false,createdAt:new Date().toISOString()});
+    // Assign ptId — admin creates unassigned, PT auto-assigns to themselves
+    const ptId = currentUserRole === 'pt' ? currentUser.uid : '';
+    await addDoc(collection(db,'clients'),{name,goals,defaultFocus,pronouns,isGroup:isNewGroup,isArchived:false,ptId,createdAt:new Date().toISOString()});
     window.closeModal();
     await loadClients();
     showToast('✅ '+(isNewGroup?'Group':'Client')+' "'+name+'" created!');
