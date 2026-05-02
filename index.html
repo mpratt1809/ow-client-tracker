@@ -951,7 +951,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, getDocsFromServer, doc, setDoc, deleteDoc, updateDoc, query, where, writeBatch, getDoc, limit }
+import { getFirestore, collection, addDoc, getDocs, getDocsFromServer, doc, setDoc, deleteDoc, updateDoc, query, where, writeBatch, getDoc, limit, arrayUnion, arrayRemove }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -1078,6 +1078,27 @@ async function init() {
     const clientsSnap = await withTimeout(getDocs(collection(db, 'clients')), 12000, 'clients check');
     const hasClients = !clientsSnap.empty;
     const clientCount = clientsSnap.size;
+
+    // ── One-time migration: ptId (string) → ptIds (array) ──
+    // Only runs if any client still has the old ptId field without ptIds
+    if (hasClients) {
+      const needsMigration = clientsSnap.docs.filter(d => {
+        const data = d.data();
+        return data.ptId !== undefined && !Array.isArray(data.ptIds);
+      });
+      if (needsMigration.length > 0) {
+        console.log('[Migration] Converting', needsMigration.length, 'clients from ptId to ptIds');
+        const migBatch = writeBatch(db);
+        needsMigration.forEach(d => {
+          const ptId = d.data().ptId;
+          migBatch.update(doc(db, 'clients', d.id), {
+            ptIds: ptId ? [ptId] : [],
+          });
+        });
+        await migBatch.commit();
+        console.log('[Migration] Complete');
+      }
+    }
     console.log('[' + (Date.now()-t0) + 'ms] hasClients=' + hasClients + ', count=' + clientCount + ', expected=' + SEED_DATA.length);
     if (!hasClients) {
       step(30, 'First run — seeding clients…');
@@ -1244,14 +1265,16 @@ async function loadClients() {
   let clients = snap.docs.map(d => ({ id: d.id, ...d.data(), sessionCount: d.data().sessionCount||0, lastDate: d.data().lastDate||'' }));
   // PT users only see their assigned clients
   if (currentUserRole === 'pt' && currentUser) {
-    // Check if this PT is active
     if (currentUserData?.active === false) {
-      // Deactivated PT — show message and sign out
       showToast('⚠️ Your account has been deactivated. Contact your admin.');
       setTimeout(() => signOut(auth), 2000);
       return;
     }
-    clients = clients.filter(c => c.ptId === currentUser.uid);
+    // Support both legacy ptId (string) and new ptIds (array)
+    clients = clients.filter(c => {
+      if (Array.isArray(c.ptIds)) return c.ptIds.includes(currentUser.uid);
+      return c.ptId === currentUser.uid; // legacy fallback
+    });
   }
   allClients = clients.sort((a, b) => a.name.localeCompare(b.name));
   renderClientGrid();
@@ -1986,7 +2009,10 @@ window.renderHistory = function() {
       'onclick="openFocusEdit(\'' + date + '\')" title="Click to edit focus">' + (focus || '—') + ' ✎</span>' +
       (hasPR?'<span class="pr-tag">🏆 PR</span>':'') + '</div>' +
       '<div class="history-exlist">' + exNames + '</div></div>' +
-      '<div class="history-right"><div class="history-badge">' + rows.length + ' ex</div><div class="history-chevron" id="chev-'+idx+'"' + (date === todayStr() ? ' style="transform:rotate(180deg)"' : '') + '>▾</div></div></div>' +
+      '<div class="history-right" style="display:flex;align-items:center;gap:8px;">' +
+      '<button class="ex-set-btn" style="font-size:10px;padding:3px 8px;" onclick="event.stopPropagation();window.openEditSession(\'' + date + '\')" title="Edit this session">✏️ Edit</button>' +
+      '<div class="history-badge">' + rows.length + ' ex</div>' +
+      '<div class="history-chevron" id="chev-'+idx+'"' + (date === todayStr() ? ' style="transform:rotate(180deg)"' : '') + '>▾</div></div></div>' +
       '<div class="history-detail' + (date === todayStr() ? ' open' : '') + '" id="hd-' + idx + '">' +
 
       exRows + (note?'<div class="note-line" style="margin-top:6px;">📋 '+note+'</div>':'') + '</div></div>';
@@ -2883,7 +2909,10 @@ async function renderAdminPanel() {
       h += '<div style="color:var(--muted);font-size:13px;padding:8px 0;">No PT accounts yet — create one above.</div>';
     } else {
       ptUsers.forEach(u => {
-        const assigned = clients.filter(c => c.ptId === u.id);
+        const assigned = clients.filter(c => {
+          const ids = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
+          return ids.includes(u.id);
+        });
         const isActive = u.active !== false; // default active
         const lastLogin = u.lastLogin ? fmtDate(u.lastLogin.split('T')[0]) : 'Never';
         const sessCount = u.sessionCount || 0;
@@ -2916,12 +2945,20 @@ async function renderAdminPanel() {
           '<div id="assign-' + u.id + '" style="display:none;margin-top:12px;background:var(--surface);border-radius:10px;padding:14px;">' +
             '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Assign clients to ' + u.name + '</div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:280px;overflow-y:auto;">' +
-              clients.map(c =>
-                '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:13px;">' +
-                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (c.ptId === u.id ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;" />' +
-                  c.name + (c.ptId && c.ptId !== u.id ? ' <span style="font-size:10px;color:var(--muted);">(assigned to other PT)</span>' : '') +
-                '</label>'
-              ).join('') +
+              clients.map(c => {
+                const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
+                const isChecked = cPtIds.includes(u.id);
+                const otherPTs = cPtIds.filter(id => id !== u.id);
+                const otherNames = otherPTs.map(id => {
+                  const pt = (window._adminPtUsers||[]).find(p => p.id === id);
+                  return pt ? pt.name.split(' ')[0] : '?';
+                });
+                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">+ ' + otherNames.join(', ') + '</span>' : '';
+                return '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:13px;">' +
+                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;" />' +
+                  c.name + otherLabel +
+                '</label>';
+              }).join('') +
             '</div>' +
             '<div style="display:flex;gap:8px;margin-top:12px;">' +
               '<button class="btn-save" data-ptid="' + u.id + '" onclick="window.saveAssignments(this.dataset.ptid)">Save</button>' +
@@ -2934,7 +2971,10 @@ async function renderAdminPanel() {
     h += '</div>';
 
     // ── Section 4: Unassigned clients — each has a PT picker ──
-    const unassigned = clients.filter(c => !c.ptId || c.ptId === '');
+    const unassigned = clients.filter(c => {
+      const ids = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
+      return ids.length === 0;
+    });
     if (unassigned.length) {
       h += '<div class="card">' +
         '<div class="card-title">⚠️ Unassigned Clients (' + unassigned.length + ')</div>' +
@@ -2986,12 +3026,14 @@ window.saveAssignments = async function(ptId) {
     const clientId = cb.dataset.client;
     const client = clients.find(c => c.id === clientId);
     if (!client) return;
-    if (cb.checked && client.ptId !== ptId) {
-      batch.update(doc(db, 'clients', clientId), { ptId });
-      client.ptId = ptId; changed++;
-    } else if (!cb.checked && client.ptId === ptId) {
-      batch.update(doc(db, 'clients', clientId), { ptId: '' });
-      client.ptId = ''; changed++;
+    const currentPtIds = Array.isArray(client.ptIds) ? client.ptIds : (client.ptId ? [client.ptId] : []);
+    const isAssigned = currentPtIds.includes(ptId);
+    if (cb.checked && !isAssigned) {
+      batch.update(doc(db, 'clients', clientId), { ptIds: arrayUnion(ptId) });
+      client.ptIds = [...currentPtIds, ptId]; changed++;
+    } else if (!cb.checked && isAssigned) {
+      batch.update(doc(db, 'clients', clientId), { ptIds: arrayRemove(ptId) });
+      client.ptIds = currentPtIds.filter(id => id !== ptId); changed++;
     }
   });
   if (changed) await batch.commit();
@@ -3004,9 +3046,11 @@ window.quickAssign = async function(clientId) {
   const sel = document.querySelector('[data-clientid="' + clientId + '"].quick-assign-sel');
   if (!sel || !sel.value) return showToast('⚠️ Please select a PT first');
   const ptId = sel.value;
-  await updateDoc(doc(db, 'clients', clientId), { ptId });
+  await updateDoc(doc(db, 'clients', clientId), { ptIds: arrayUnion(ptId) });
   const client = (window._adminClients||[]).find(c => c.id === clientId);
-  if (client) client.ptId = ptId;
+  if (client) {
+    client.ptIds = Array.isArray(client.ptIds) ? [...client.ptIds, ptId] : [ptId];
+  }
   showToast('✅ Client assigned');
   renderAdminPanel();
 };
@@ -3060,10 +3104,13 @@ window.deactivatePT = async function(ptId, name) {
     // Mark PT as inactive
     batch.update(doc(db, 'users', ptId), { active: false });
     // Unassign all their clients
-    const assigned = (window._adminClients||[]).filter(c => c.ptId === ptId);
+    const assigned = (window._adminClients||[]).filter(c => {
+      const ids = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
+      return ids.includes(ptId);
+    });
     assigned.forEach(c => {
-      batch.update(doc(db, 'clients', c.id), { ptId: '' });
-      c.ptId = '';
+      batch.update(doc(db, 'clients', c.id), { ptIds: arrayRemove(ptId) });
+      c.ptIds = (c.ptIds||[]).filter(id => id !== ptId);
     });
     await batch.commit();
     showToast('✅ ' + name + ' deactivated — ' + assigned.length + ' clients unassigned');
@@ -3108,6 +3155,177 @@ window.createPTAccount = async function() {
   } catch(e) {
     const msgs = { 'auth/email-already-in-use': 'That email is already in use.', 'auth/weak-password': 'Password must be at least 6 characters.' };
     showToast('⚠️ ' + (msgs[e.code] || e.message));
+  }
+};
+
+// ── EDIT SESSION ──
+window.openEditSession = function(date) {
+  const modal = document.getElementById('edit-session-modal');
+  const content = document.getElementById('edit-session-content');
+  if (!modal || !content) return;
+
+  // Get all rows for this date
+  const rows = clientSessions.filter(s => s.date === date);
+  if (!rows.length) return;
+
+  const focus = rows[0]?.focus || '';
+  const week = rows[0]?.week || '';
+  const sessionNotes = rows.find(r => r.sessionNotes)?.sessionNotes || '';
+
+  // Group rows by exercise
+  const exGroups = [...new Set(rows.map(r => r.exercise))].map(exName => {
+    return rows.filter(r => r.exercise === exName);
+  });
+
+  let h = '';
+
+  // Date / Week / Focus row
+  h += '<div class="form-row" style="margin-bottom:16px;">' +
+    '<div class="form-group"><label>Date</label>' +
+      '<input type="date" id="edit-sess-date" value="' + date + '" /></div>' +
+    '<div class="form-group"><label>Week #</label>' +
+      '<input type="number" id="edit-sess-week" value="' + (week||'') + '" /></div>' +
+    '<div class="form-group"><label>Focus</label>' +
+      '<select id="edit-sess-focus">' +
+        ['— select —','Arms','Legs','Full Body','Back','Chest','Shoulders','Core','Cardio'].map(f =>
+          '<option value="' + f + '"' + (focus === f ? ' selected' : '') + '>' + f + '</option>'
+        ).join('') +
+      '</select></div>' +
+  '</div>';
+
+  // Exercise blocks
+  h += '<div id="edit-ex-blocks">';
+  exGroups.forEach((exRows, ei) => {
+    const exName = exRows[0].exercise;
+    const exNote = exRows.find(r => r.exNotes)?.exNotes || '';
+    const firstRow = exRows[0];
+    h += '<div class="edit-ex-block" data-ei="' + ei + '" style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:10px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
+        '<input type="text" class="edit-ex-name" placeholder="Exercise name" value="' + exName + '" style="flex:1;font-weight:700;" />' +
+        '<span style="font-size:11px;color:var(--muted);">' + exRows.length + ' row(s)</span>' +
+      '</div>';
+
+    // If per-set data, show set rows
+    if (firstRow.setsData && firstRow.setsData.length) {
+      h += '<div class="ex-set-headers"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>RPE</span><span>%MAX</span><span></span></div>';
+      firstRow.setsData.forEach((s, si) => {
+        h += '<div class="ex-set-row" data-si="' + si + '">' +
+          '<span class="ex-set-label">S' + (si+1) + '</span>' +
+          '<input type="text" class="ex-set-input edit-set-wt" value="' + (s.weight||'') + '" placeholder="lbs" />' +
+          '<input type="text" class="ex-set-input edit-set-reps" value="' + (s.reps||'') + '" placeholder="reps" />' +
+          '<input type="text" class="ex-set-input ex-set-small edit-set-rpe" value="' + (s.rpe||'') + '" placeholder="RPE" />' +
+          '<input type="text" class="ex-set-input ex-set-small edit-set-pct" value="' + (s.pct||'') + '" placeholder="%" />' +
+          '<span></span>' +
+        '</div>';
+      });
+    } else {
+      // Legacy single-row format
+      h += '<div class="form-row">' +
+        '<div class="form-group"><label>Sets</label><input type="text" class="edit-legacy-sets" value="' + (firstRow.sets||'') + '" /></div>' +
+        '<div class="form-group"><label>Reps</label><input type="text" class="edit-legacy-reps" value="' + (firstRow.reps||'') + '" /></div>' +
+        '<div class="form-group"><label>Weight</label><input type="text" class="edit-legacy-wt" value="' + (firstRow.weight||'') + '" /></div>' +
+        '<div class="form-group"><label>RPE</label><input type="text" class="edit-legacy-rpe" value="' + (firstRow.rpe||'') + '" /></div>' +
+      '</div>';
+    }
+
+    h += '<input type="text" class="ex-note-input edit-ex-note" value="' + exNote + '" placeholder="📝 Exercise note…" style="margin-top:8px;" />';
+    // Store row IDs as data attribute for saving
+    h += '<input type="hidden" class="edit-ex-ids" value="' + exRows.map(r => r.id).join(',') + '" />';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Session notes
+  h += '<div class="form-group" style="margin-top:12px;"><label>Session Notes</label>' +
+    '<textarea id="edit-sess-notes" style="min-height:60px;">' + sessionNotes + '</textarea></div>';
+
+  // Save button
+  h += '<div style="display:flex;gap:10px;margin-top:16px;">' +
+    '<button class="btn-save" onclick="window.saveEditSession(\'' + date + '\')">💾 Save Changes</button>' +
+    '<button class="ex-set-btn" onclick="window.closeEditSession()">Cancel</button>' +
+  '</div>';
+
+  content.innerHTML = h;
+  modal.style.display = 'block';
+  window.scrollTo(0, 0);
+};
+
+window.closeEditSession = function() {
+  document.getElementById('edit-session-modal').style.display = 'none';
+};
+
+window.saveEditSession = async function(originalDate) {
+  const newDate = document.getElementById('edit-sess-date').value;
+  const newWeek = document.getElementById('edit-sess-week').value;
+  const newFocus = document.getElementById('edit-sess-focus').value;
+  const newSessionNotes = document.getElementById('edit-sess-notes').value.trim();
+
+  const blocks = document.querySelectorAll('.edit-ex-block');
+  const batch = writeBatch(db);
+  let updateCount = 0;
+
+  blocks.forEach(block => {
+    const newExName = block.querySelector('.edit-ex-name')?.value.trim() || '';
+    const newExNote = block.querySelector('.edit-ex-note')?.value.trim() || '';
+    const rowIds = block.querySelector('.edit-ex-ids')?.value.split(',').filter(Boolean) || [];
+
+    // Build new setsData if per-set inputs exist
+    const setRows = block.querySelectorAll('.ex-set-row');
+    let newSetsData = null;
+    if (setRows.length) {
+      newSetsData = [...setRows].map(sr => ({
+        weight: sr.querySelector('.edit-set-wt')?.value.trim() || '',
+        reps: sr.querySelector('.edit-set-reps')?.value.trim() || '',
+        rpe: sr.querySelector('.edit-set-rpe')?.value.trim() || '',
+        pct: sr.querySelector('.edit-set-pct')?.value.trim() || '',
+      }));
+    }
+
+    // Legacy fields
+    const legacySets = block.querySelector('.edit-legacy-sets')?.value.trim();
+    const legacyReps = block.querySelector('.edit-legacy-reps')?.value.trim();
+    const legacyWt = block.querySelector('.edit-legacy-wt')?.value.trim();
+    const legacyRpe = block.querySelector('.edit-legacy-rpe')?.value.trim();
+
+    rowIds.forEach(id => {
+      if (!id) return;
+      const updates = {
+        exercise: normalizeExercise(newExName),
+        date: newDate,
+        week: newWeek ? parseInt(newWeek) : null,
+        focus: newFocus === '— select —' ? '' : newFocus,
+        sessionNotes: newSessionNotes,
+        exNotes: newExNote,
+      };
+      if (newSetsData) {
+        // Compute summary fields from setsData
+        const weights = newSetsData.map(s => parseFloat(s.weight)).filter(n => !isNaN(n));
+        updates.setsData = newSetsData;
+        updates.weight = weights.length ? String(Math.max(...weights)) : '';
+        updates.sets = String(newSetsData.length);
+        const rpes = newSetsData.map(s => parseFloat(s.rpe)).filter(n => !isNaN(n));
+        updates.rpe = rpes.length ? (rpes.reduce((a,b)=>a+b,0)/rpes.length).toFixed(1) : '';
+      } else {
+        if (legacySets !== undefined) updates.sets = legacySets;
+        if (legacyReps !== undefined) updates.reps = legacyReps;
+        if (legacyWt !== undefined) updates.weight = legacyWt;
+        if (legacyRpe !== undefined) updates.rpe = legacyRpe;
+      }
+      batch.update(doc(db, 'sessions', id), updates);
+      updateCount++;
+    });
+  });
+
+  try {
+    await batch.commit();
+    // Reload sessions and re-render
+    clientSessions = await loadClientSessions(currentClient.name, true);
+    window.closeEditSession();
+    resetHistFilters();
+    window.renderHistory();
+    showToast('✅ Session updated (' + updateCount + ' entries)');
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
   }
 };
 
@@ -3302,8 +3520,8 @@ window.saveNewClient = async function() {
   btn.disabled=true; btn.textContent='Saving…';
   try {
     // Assign ptId — admin creates unassigned, PT auto-assigns to themselves
-    const ptId = currentUserRole === 'pt' ? currentUser.uid : '';
-    await addDoc(collection(db,'clients'),{name,goals,defaultFocus,pronouns,isGroup:isNewGroup,isArchived:false,ptId,createdAt:new Date().toISOString()});
+    const ptIds = currentUserRole === 'pt' ? [currentUser.uid] : [];
+    await addDoc(collection(db,'clients'),{name,goals,defaultFocus,pronouns,isGroup:isNewGroup,isArchived:false,ptIds,createdAt:new Date().toISOString()});
     window.closeModal();
     await loadClients();
     showToast('✅ '+(isNewGroup?'Group':'Client')+' "'+name+'" created!');
@@ -3343,6 +3561,19 @@ onAuthStateChanged(auth, async (user) => {
 </script>
   <!-- ── ADMIN PANEL ── -->
   <div id="admin-panel" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;overflow-y:auto;"></div>
+
+  <!-- ── EDIT SESSION MODAL ── -->
+  <div id="edit-session-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:2000;overflow-y:auto;">
+    <div style="max-width:680px;margin:40px auto;padding:20px 16px;">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div class="card-title" style="margin:0;">✏️ Edit Session</div>
+          <button onclick="window.closeEditSession()" class="remove-row-btn">✕</button>
+        </div>
+        <div id="edit-session-content"></div>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>
