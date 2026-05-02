@@ -466,6 +466,11 @@
     /* ── ADMIN PANEL ── */
     #admin-panel { display:none; }
 
+    /* ── GROUP SESSION ── */
+    .att-pill { user-select: none; }
+    .att-pill.att-selected { border-color: var(--accent) !important; background: rgba(232,255,71,0.08) !important; }
+    .group-member-section { animation: slideIn 0.2s ease; }
+
     /* ── ARCHIVE / DANGER ZONE ── */
     .danger-zone { margin-top: 28px; padding: 16px; border: 1px solid rgba(255,71,87,0.2); border-radius: var(--radius); background: rgba(255,71,87,0.04); }
     .danger-zone-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--danger); margin-bottom: 12px; }
@@ -840,7 +845,11 @@
 
       <div class="form-group">
         <label>Exercises</label>
-        
+        <!-- Group attendance picker (shown only for group clients) -->
+        <div id="group-attendance-section" style="display:none;margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">👥 Who attended?</div>
+          <div id="group-attendance-pills" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
         <div id="exercise-rows"></div>
         <button class="btn-add-row" onclick="addExRow()">＋ Add Exercise</button>
       </div>
@@ -852,7 +861,7 @@
         <label>PR Achieved?</label>
         <select id="log-pr"><option value="false">No</option><option value="true">Yes — PR! 🏆</option></select>
       </div>
-      <button class="btn-primary" id="save-btn" onclick="saveSession()">💾 SAVE SESSION</button>
+      <button class="btn-primary" id="save-btn" onclick="currentClient?.isGroup ? window.saveGroupSession() : saveSession()">💾 SAVE SESSION</button>
     </div>
   </div>
 
@@ -1610,14 +1619,28 @@ async function initLogForm() {
   const weeks = clientSessions.map(s => s.week).filter(w => w!==null && w!==undefined).map(Number).filter(n => !isNaN(n));
   const maxWeek = weeks.length ? Math.max(...weeks) : 0;
   document.getElementById('log-week').value = maxWeek + 1;
-  // Recalculate week when date changes
   document.getElementById('log-date').addEventListener('change', function() {
     recalcWeekForDate(this.value);
   });
   if (currentClient.defaultFocus) document.getElementById('log-focus').value = currentClient.defaultFocus;
   document.getElementById('exercise-rows').innerHTML = '';
   exRowCount = 0;
-  addExRow();
+
+  // ── Group session setup ──
+  const attSection = document.getElementById('group-attendance-section');
+  const addExBtn = document.querySelector('[onclick="addExRow()"]');
+  if (currentClient.isGroup) {
+    // Show attendance picker
+    attSection.style.display = 'block';
+    await renderAttendancePills();
+    // Replace Add Exercise button behavior
+    if (addExBtn) addExBtn.setAttribute('onclick', 'window.addGroupExRow()');
+    window.addGroupExRow(); // start with one exercise
+  } else {
+    attSection.style.display = 'none';
+    if (addExBtn) addExBtn.setAttribute('onclick', 'addExRow()');
+    addExRow();
+  }
 
   // Check for saved plan and show load banner
   try {
@@ -3206,6 +3229,306 @@ window.createPTAccount = async function() {
   } catch(e) {
     const msgs = { 'auth/email-already-in-use': 'That email is already in use.', 'auth/weak-password': 'Password must be at least 6 characters.' };
     showToast('⚠️ ' + (msgs[e.code] || e.message));
+  }
+};
+
+// ── GROUP SESSION ──
+
+// Track selected attendees
+let groupAttendees = []; // array of {id, name} client objects
+
+async function renderAttendancePills() {
+  const container = document.getElementById('group-attendance-pills');
+  if (!container) return;
+  groupAttendees = [];
+
+  // Get all clients assigned to the same PT(s) as this group
+  const groupPtIds = Array.isArray(currentClient.ptIds)
+    ? currentClient.ptIds
+    : (currentClient.ptId ? [currentClient.ptId] : []);
+
+  // Load all non-group clients visible to this PT
+  const snap = await getDocs(collection(db, 'clients'));
+  const candidates = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => !c.isGroup && !c.isArchived)
+    .filter(c => {
+      // Show clients that share at least one PT with the group
+      const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
+      return groupPtIds.some(pid => cPtIds.includes(pid));
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  container.innerHTML = candidates.map(c => {
+    const ini = c.name.split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+    return '<div class="att-pill" data-clientid="' + c.id + '" data-clientname="' + c.name.replace(/'/g, '&#39;') + '" ' +
+      'onclick="window.toggleAttendee(this)" ' +
+      'style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface);border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.15s;">' +
+      '<span style="width:22px;height:22px;border-radius:50%;background:var(--surface2);color:var(--muted);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;" class="att-avatar">' + ini + '</span>' +
+      c.name.split(' ')[0] +
+    '</div>';
+  }).join('');
+}
+
+window.toggleAttendee = function(pill) {
+  const clientId = pill.dataset.clientid;
+  const clientName = pill.dataset.clientname;
+  const isSelected = pill.classList.contains('att-selected');
+
+  if (isSelected) {
+    pill.classList.remove('att-selected');
+    pill.style.borderColor = 'var(--border)';
+    pill.style.background = 'var(--surface)';
+    pill.querySelector('.att-avatar').style.background = 'var(--surface2)';
+    pill.querySelector('.att-avatar').style.color = 'var(--muted)';
+    groupAttendees = groupAttendees.filter(a => a.id !== clientId);
+  } else {
+    pill.classList.add('att-selected');
+    pill.style.borderColor = 'var(--accent)';
+    pill.style.background = 'rgba(232,255,71,0.08)';
+    pill.querySelector('.att-avatar').style.background = 'var(--accent)';
+    pill.querySelector('.att-avatar').style.color = '#0d0f14';
+    groupAttendees.push({ id: clientId, name: clientName });
+  }
+  // Refresh all group exercise rows to show/hide per-person sections
+  document.querySelectorAll('.group-ex-block').forEach(block => {
+    refreshGroupExBlock(block);
+  });
+};
+
+let groupExCount = 0;
+
+window.addGroupExRow = function() {
+  groupExCount++;
+  const id = 'gex-' + groupExCount;
+  const div = document.createElement('div');
+  div.className = 'group-ex-block ex-input-row';
+  div.id = id;
+  div.innerHTML =
+    '<div class="ex-name-row">' +
+      '<div class="ex-name-wrap" id="wrap-' + id + '">' +
+        '<input type="text" class="ex-name-cell group-ex-name" placeholder="Exercise name" autocomplete="off" ' +
+        'oninput="showGroupExSuggestions('' + id + '',this)" onkeydown="exKeyNav(event,'' + id + '')" />' +
+        '<div class="ex-suggestions" id="ex-suggestions-' + id + '"></div>' +
+      '</div>' +
+      '<button class="remove-row-btn" onclick="this.closest('.group-ex-block').remove()">✕</button>' +
+    '</div>' +
+    '<div class="group-ex-members" id="members-' + id + '">' +
+      '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:6px 0;">Select attendees above to log per-person sets</div>' +
+    '</div>';
+  document.getElementById('exercise-rows').appendChild(div);
+
+  // Autocomplete
+  document.addEventListener('click', function handler(e) {
+    const wrap = document.getElementById('wrap-' + id);
+    if (wrap && !wrap.contains(e.target)) {
+      const dd = document.getElementById('ex-suggestions-' + id);
+      if (dd) dd.classList.remove('open');
+    }
+  });
+
+  // If attendees already selected, show their sections immediately
+  if (groupAttendees.length) refreshGroupExBlock(div);
+};
+
+window.showGroupExSuggestions = function(id, input) {
+  const q = input.value.trim().toLowerCase();
+  const dropdown = document.getElementById('ex-suggestions-' + id);
+  if (!dropdown) return;
+  const safeQ = q.replace(/[.*+?^${}()|[\]\]/g, '\$&');
+  const matches = q.length < 1
+    ? MASTER_EXERCISES.slice(0, 8).map(n => ({ name: n, mine: clientSessions.some(s => s.exercise === n) }))
+    : MASTER_EXERCISES.filter(n => n.toLowerCase().includes(q))
+        .slice(0, 12).map(n => ({ name: n, mine: clientSessions.some(s => s.exercise === n) }));
+  if (!matches.length) { dropdown.classList.remove('open'); return; }
+  const itemsHTML = matches.map(item =>
+    '<div class="ex-sug-item' + (item.mine ? ' ex-sug-mine' : '') + '" data-name="' + item.name.replace(/"/g,'&quot;') + '">' +
+    (q ? item.name.replace(new RegExp('(' + safeQ + ')','gi'),'<mark>$1</mark>') : item.name) +
+    (item.mine ? '<span class="ex-sug-tag">this client</span>' : '') + '</div>'
+  ).join('');
+  dropdown.innerHTML = (!q ? '<div class="ex-sug-group-label">Recent &amp; suggested</div>' : '') + itemsHTML;
+  dropdown.querySelectorAll('.ex-sug-item').forEach(el => {
+    el.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      input.value = normalizeExercise(this.dataset.name);
+      dropdown.classList.remove('open');
+    });
+  });
+  dropdown.classList.add('open');
+};
+
+function refreshGroupExBlock(block) {
+  const membersDiv = block.querySelector('.group-ex-members');
+  if (!membersDiv) return;
+  if (!groupAttendees.length) {
+    membersDiv.innerHTML = '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:6px 0;">Select attendees above to log per-person sets</div>';
+    return;
+  }
+  // Build per-person set sections, preserving existing values
+  const existingSections = {};
+  membersDiv.querySelectorAll('.group-member-section').forEach(sec => {
+    const cid = sec.dataset.clientid;
+    const sets = [...sec.querySelectorAll('.ex-set-row')].map(row => {
+      const inputs = row.querySelectorAll('.ex-set-input');
+      return { weight: inputs[0]?.value||'', reps: inputs[1]?.value||'', rpe: inputs[2]?.value||'', pct: inputs[3]?.value||'' };
+    });
+    const note = sec.querySelector('.ex-note-input')?.value || '';
+    existingSections[cid] = { sets, note };
+  });
+
+  membersDiv.innerHTML = groupAttendees.map(att => {
+    const prev = existingSections[att.id] || {};
+    const prevSets = prev.sets || [{weight:'',reps:'',rpe:'',pct:''},{weight:'',reps:'',rpe:'',pct:''},{weight:'',reps:'',rpe:'',pct:''}];
+    const ini = att.name.split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+    let setsHTML = '<div class="ex-set-headers" style="margin-top:4px;"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>RPE</span><span>%MAX</span><span></span></div>';
+    setsHTML += prevSets.map((s, i) =>
+      '<div class="ex-set-row">' +
+        '<span class="ex-set-label">S'+(i+1)+'</span>' +
+        '<input type="text" class="ex-set-input" placeholder="lbs" value="'+(s.weight||'')+'" />' +
+        '<input type="text" class="ex-set-input" placeholder="reps" value="'+(s.reps||'')+'" />' +
+        '<input type="text" class="ex-set-input ex-set-small" placeholder="RPE" value="'+(s.rpe||'')+'" />' +
+        '<input type="text" class="ex-set-input ex-set-small" placeholder="%" value="'+(s.pct||'')+'" />' +
+        '<span class="ex-set-check" onclick="toggleSetDone(this)">✓</span>' +
+      '</div>'
+    ).join('');
+    return '<div class="group-member-section" data-clientid="' + att.id + '" data-clientname="' + att.name.replace(/'/g,'&#39;') + '" ' +
+      'style="border-left:3px solid var(--accent);margin:10px 0 6px;padding:8px 0 8px 12px;">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">' +
+        '<span style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#0d0f14;font-weight:700;font-size:9px;display:flex;align-items:center;justify-content:center;">' + ini + '</span>' +
+        '<span style="font-size:12px;font-weight:700;">' + att.name + '</span>' +
+        '<button class="ex-set-btn" style="font-size:10px;padding:2px 8px;" onclick="addGroupMemberSet(this)">＋ Set</button>' +
+        '<button class="ex-set-btn ex-set-btn-remove" style="font-size:10px;padding:2px 8px;" onclick="removeGroupMemberSet(this)">－ Set</button>' +
+      '</div>' +
+      setsHTML +
+      '<input type="text" class="ex-note-input" placeholder="📝 Note for ' + att.name.split(' ')[0] + '..." value="'+(prev.note||'')+'" style="margin-top:6px;" />' +
+    '</div>';
+  }).join('');
+}
+
+window.addGroupMemberSet = function(btn) {
+  const section = btn.closest('.group-member-section');
+  const setRows = section.querySelectorAll('.ex-set-row');
+  const newNum = setRows.length + 1;
+  const newRow = document.createElement('div');
+  newRow.className = 'ex-set-row';
+  newRow.innerHTML =
+    '<span class="ex-set-label">S'+newNum+'</span>' +
+    '<input type="text" class="ex-set-input" placeholder="lbs" />' +
+    '<input type="text" class="ex-set-input" placeholder="reps" />' +
+    '<input type="text" class="ex-set-input ex-set-small" placeholder="RPE" />' +
+    '<input type="text" class="ex-set-input ex-set-small" placeholder="%" />' +
+    '<span class="ex-set-check" onclick="toggleSetDone(this)">✓</span>';
+  // Insert before the note input
+  const note = section.querySelector('.ex-note-input');
+  section.insertBefore(newRow, note);
+};
+
+window.removeGroupMemberSet = function(btn) {
+  const section = btn.closest('.group-member-section');
+  const setRows = section.querySelectorAll('.ex-set-row');
+  if (setRows.length > 1) setRows[setRows.length-1].remove();
+};
+
+// ── Save Group Session ──
+window.saveGroupSession = async function() {
+  if (!groupAttendees.length) return showToast('⚠️ Select at least one attendee');
+
+  const date = document.getElementById('log-date').value;
+  const week = document.getElementById('log-week').value;
+  const sessionNotes = document.getElementById('log-session-notes')?.value.trim() || '';
+  const groupName = currentClient.name;
+  const groupWeekLabel = 'Group Wk ' + week;
+
+  const blocks = document.querySelectorAll('.group-ex-block');
+  if (!blocks.length) return showToast('⚠️ Add at least one exercise');
+
+  const toSave = [];
+  const exerciseSummary = [];
+
+  blocks.forEach(block => {
+    const exName = block.querySelector('.group-ex-name')?.value.trim();
+    if (!exName) return;
+    exerciseSummary.push(exName);
+
+    // Per-person data
+    block.querySelectorAll('.group-member-section').forEach(sec => {
+      const clientId = sec.dataset.clientid;
+      const clientName = sec.dataset.clientname;
+      const exNote = sec.querySelector('.ex-note-input')?.value.trim() || '';
+      const setRows = [...sec.querySelectorAll('.ex-set-row')];
+      const setsData = setRows.map(row => {
+        const inputs = row.querySelectorAll('.ex-set-input');
+        return {
+          weight: inputs[0]?.value.trim() || '',
+          reps: inputs[1]?.value.trim() || '',
+          rpe: inputs[2]?.value.trim() || '',
+          pct: inputs[3]?.value.trim() || ''
+        };
+      }).filter(s => s.weight || s.reps);
+
+      const weights = setsData.map(s => parseFloat(s.weight)).filter(n => !isNaN(n));
+      const heaviest = weights.length ? String(Math.max(...weights)) : '';
+      const rpeVals = setsData.map(s => parseFloat(s.rpe)).filter(n => !isNaN(n));
+      const avgRpe = rpeVals.length ? (rpeVals.reduce((a,b)=>a+b,0)/rpeVals.length).toFixed(1) : '';
+
+      // Individual session doc — tagged as group
+      toSave.push({
+        clientName,
+        week: week ? parseInt(week) : null,
+        date, focus: 'Group',
+        exercise: normalizeExercise(exName),
+        sets: String(setsData.length),
+        reps: setsData.map(s=>s.reps).join('/'),
+        weight: heaviest,
+        setsData,
+        rpe: avgRpe, pct: '',
+        effortScale: avgRpe ? 'rpe' : '', effortVal: avgRpe || '',
+        pr: false,
+        sessionNotes,
+        exNotes: exNote + (exNote ? ' · ' : '') + groupWeekLabel + ' · ' + groupName,
+        groupSession: true,
+        groupName,
+        createdAt: new Date().toISOString()
+      });
+    });
+  });
+
+  if (!toSave.length) return showToast('⚠️ No exercise data to save');
+
+  // Group summary doc
+  const groupSummary = {
+    clientName: groupName,
+    week: week ? parseInt(week) : null,
+    date, focus: 'Group',
+    exercise: 'Session Summary',
+    sets: '', reps: '', weight: '',
+    sessionNotes,
+    exNotes: 'Attended: ' + groupAttendees.map(a=>a.name).join(', ') + ' · Exercises: ' + exerciseSummary.join(', '),
+    groupSession: true,
+    groupName,
+    attendance: groupAttendees.map(a => a.id),
+    exercises: exerciseSummary,
+    createdAt: new Date().toISOString()
+  };
+  toSave.push(groupSummary);
+
+  const btn = document.getElementById('save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  try {
+    const BATCH = 499;
+    for (let i = 0; i < toSave.length; i += BATCH) {
+      const batch = writeBatch(db);
+      toSave.slice(i, i+BATCH).forEach(data => batch.set(doc(collection(db, 'sessions')), data));
+      await batch.commit();
+    }
+    clientSessions = await loadClientSessions(currentClient.name, true);
+    showToast('✅ Group session saved! ' + groupAttendees.length + ' members · ' + exerciseSummary.length + ' exercises');
+    showTab('history');
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '💾 SAVE SESSION'; }
   }
 };
 
