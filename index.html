@@ -95,7 +95,8 @@
 
     /* ── APP SHELL ── */
     #app { display: none; flex-direction: column; position: relative; z-index: 1; }
-    #app.visible { display: flex; }
+    #app.visible { display: flex; min-height: 100vh; }
+    #client-select.visible { isolation: isolate; }
 
     /* ── HEADER ── */
     header {
@@ -1342,7 +1343,9 @@ window.toggleShowArchived = function() {
 // ── OPEN CLIENT ──
 async function openClient(client) {
   currentClient = client;
-  document.getElementById('client-select').classList.remove('visible');
+  const cs = document.getElementById('client-select');
+  cs.classList.remove('visible');
+  cs.style.display = 'none';
   document.getElementById('app').style.display = '';
   document.getElementById('app').className = 'visible';
   window.scrollTo(0, 0);
@@ -1371,7 +1374,9 @@ function updateHeaderPill() {
 window.goBack = function() {
   document.getElementById('app').className = '';
   document.getElementById('app').style.display = 'none';
-  document.getElementById('client-select').classList.add('visible');
+  const cs = document.getElementById('client-select');
+  cs.style.display = '';
+  cs.classList.add('visible');
   window.scrollTo(0, 0);
   currentClient = null; clientSessions = [];
   if (progressChart) { progressChart.destroy(); progressChart = null; }
@@ -2867,10 +2872,11 @@ async function renderAdminPanel() {
     ]);
     const allUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const ptUsers = allUsers.filter(u => u.role === 'pt');
-    const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(c => !c.isGroup)
+    const allClientsRaw = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a,b) => a.name.localeCompare(b.name));
-    window._adminClients = clients;
+    const clients = allClientsRaw.filter(c => !c.isGroup);
+    const groups = allClientsRaw.filter(c => c.isGroup);
+    window._adminClients = allClientsRaw; // include groups for assignment
     window._adminPtUsers = ptUsers;
 
     let h = '';
@@ -2909,10 +2915,12 @@ async function renderAdminPanel() {
       h += '<div style="color:var(--muted);font-size:13px;padding:8px 0;">No PT accounts yet — create one above.</div>';
     } else {
       ptUsers.forEach(u => {
-        const assigned = clients.filter(c => {
+        const assigned = allClientsRaw.filter(c => {
           const ids = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
           return ids.includes(u.id);
         });
+        const assignedGroups = assigned.filter(c => c.isGroup);
+        const assignedClients = assigned.filter(c => !c.isGroup);
         const isActive = u.active !== false; // default active
         const lastLogin = u.lastLogin ? fmtDate(u.lastLogin.split('T')[0]) : 'Never';
         const sessCount = u.sessionCount || 0;
@@ -2928,7 +2936,8 @@ async function renderAdminPanel() {
                   : '<span class="suggestion-badge sug-deload" style="font-size:10px;">Inactive</span>') +
               '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:3px;">' +
-                u.email + ' · ' + assigned.length + ' client' + (assigned.length !== 1 ? 's' : '') +
+                u.email + ' · ' + assignedClients.length + ' client' + (assignedClients.length !== 1 ? 's' : '') +
+                (assignedGroups.length ? ' · ' + assignedGroups.length + ' group' + (assignedGroups.length !== 1 ? 's' : '') : '') +
                 ' · Last login: ' + lastLogin +
               '</div>' +
             '</div>' +
@@ -2944,22 +2953,32 @@ async function renderAdminPanel() {
           // Inline assign panel
           '<div id="assign-' + u.id + '" style="display:none;margin-top:12px;background:var(--surface);border-radius:10px;padding:14px;">' +
             '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Assign clients to ' + u.name + '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:280px;overflow-y:auto;">' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 6px;">Clients</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:200px;overflow-y:auto;margin-bottom:12px;">' +
               clients.map(c => {
                 const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
                 const isChecked = cPtIds.includes(u.id);
                 const otherPTs = cPtIds.filter(id => id !== u.id);
-                const otherNames = otherPTs.map(id => {
-                  const pt = (window._adminPtUsers||[]).find(p => p.id === id);
-                  return pt ? pt.name.split(' ')[0] : '?';
-                });
-                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">+ ' + otherNames.join(', ') + '</span>' : '';
-                return '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:13px;">' +
-                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;" />' +
-                  c.name + otherLabel +
-                '</label>';
+                const otherNames = otherPTs.map(id => { const pt = (window._adminPtUsers||[]).find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
+                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">+' + otherNames.join(',') + '</span>' : '';
+                return '<label style="display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;">' +
+                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;" />' +
+                  c.name + otherLabel + '</label>';
               }).join('') +
             '</div>' +
+            (groups.length ? '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 6px;">Groups</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;">' +
+              groups.map(c => {
+                const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
+                const isChecked = cPtIds.includes(u.id);
+                const otherPTs = cPtIds.filter(id => id !== u.id);
+                const otherNames = otherPTs.map(id => { const pt = (window._adminPtUsers||[]).find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
+                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">+' + otherNames.join(',') + '</span>' : '';
+                return '<label style="display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;border:1px solid rgba(255,255,255,0.06);">' +
+                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;" />' +
+                  '👥 ' + c.name + otherLabel + '</label>';
+              }).join('') +
+            '</div>' : '') +
             '<div style="display:flex;gap:8px;margin-top:12px;">' +
               '<button class="btn-save" data-ptid="' + u.id + '" onclick="window.saveAssignments(this.dataset.ptid)">Save</button>' +
               '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">Cancel</button>' +
@@ -2971,7 +2990,7 @@ async function renderAdminPanel() {
     h += '</div>';
 
     // ── Section 4: Unassigned clients — each has a PT picker ──
-    const unassigned = clients.filter(c => {
+    const unassigned = allClientsRaw.filter(c => {
       const ids = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
       return ids.length === 0;
     });
