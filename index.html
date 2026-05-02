@@ -3308,10 +3308,10 @@ window.addGroupExRow = function() {
     '<div class="ex-name-row">' +
       '<div class="ex-name-wrap" id="wrap-' + id + '">' +
         '<input type="text" class="ex-name-cell group-ex-name" placeholder="Exercise name" autocomplete="off" ' +
-        'oninput="showGroupExSuggestions('' + id + '',this)" onkeydown="exKeyNav(event,'' + id + '')" />' +
+        'oninput="showGroupExSuggestions(\'' + id + '\',this)" onkeydown="exKeyNav(event,\'' + id + '\')" />' +
         '<div class="ex-suggestions" id="ex-suggestions-' + id + '"></div>' +
       '</div>' +
-      '<button class="remove-row-btn" onclick="this.closest('.group-ex-block').remove()">✕</button>' +
+      '<button class="remove-row-btn" onclick="this.closest(\'.group-ex-block\').remove()">✕</button>' +
     '</div>' +
     '<div class="group-ex-members" id="members-' + id + '">' +
       '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:6px 0;">Select attendees above to log per-person sets</div>' +
