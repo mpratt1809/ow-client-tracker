@@ -2943,19 +2943,31 @@ async function renderAdminPanel() {
           '<div style="margin-bottom:10px;">' +
             '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Clients (' + assignedClients.length + ')</div>' +
             (assignedClients.length
-              ? '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
-                  assignedClients.map(c => '<span style="font-size:11px;background:var(--surface2);border-radius:5px;padding:2px 8px;">' + c.name + '</span>').join('') +
+              ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-top:4px;">' +
+                  assignedClients.map(c => {
+                    const ini = c.name.split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+                    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--surface2);border-radius:8px;padding:8px 4px;text-align:center;">' +
+                      '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0d0f14;font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center;">' + ini + '</div>' +
+                      '<span style="font-size:10px;color:var(--text);line-height:1.2;word-break:break-word;">' + c.name + '</span>' +
+                    '</div>';
+                  }).join('') +
                 '</div>'
-              : '<div style="font-size:11px;color:var(--muted);font-style:italic;">None assigned</div>') +
+              : '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:4px 0;">None assigned</div>') +
           '</div>' +
           // Groups list
           (groups.length ? '<div style="margin-bottom:10px;">' +
             '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Groups (' + assignedGroups.length + ')</div>' +
             (assignedGroups.length
-              ? '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
-                  assignedGroups.map(c => '<span style="font-size:11px;background:var(--surface2);border-radius:5px;padding:2px 8px;">👥 ' + c.name + '</span>').join('') +
+              ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-top:4px;">' +
+                  assignedGroups.map(c => {
+                    const ini = c.name.split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+                    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--surface2);border-radius:8px;padding:8px 4px;text-align:center;">' +
+                      '<div style="width:28px;height:28px;border-radius:50%;background:var(--primary,#1a6ebd);color:#fff;font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center;">' + ini + '</div>' +
+                      '<span style="font-size:10px;color:var(--text);line-height:1.2;word-break:break-word;">' + c.name + '</span>' +
+                    '</div>';
+                  }).join('') +
                 '</div>'
-              : '<div style="font-size:11px;color:var(--muted);font-style:italic;">None assigned</div>') +
+              : '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:4px 0;">None assigned</div>') +
           '</div>' : '') +
           // Action buttons
           '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">' +
@@ -2969,30 +2981,32 @@ async function renderAdminPanel() {
           '<div id="assign-' + u.id + '" style="display:none;margin-top:12px;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border);">' +
             '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;">✏️ Assigning clients to ' + u.name + '</div>' +
             '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 5px;">Clients</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:10px;">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;max-height:220px;overflow-y:auto;margin-bottom:12px;padding-right:4px;">' +
               clients.map(c => {
                 const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
                 const isChecked = cPtIds.includes(u.id);
                 const otherPTs = cPtIds.filter(id => id !== u.id);
                 const otherNames = otherPTs.map(id => { const pt = ptUsers.find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
-                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">also: ' + otherNames.join(', ') + '</span>' : '';
-                return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--surface);border-radius:6px;cursor:pointer;font-size:12px;">' +
-                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;" />' +
-                  c.name + otherLabel + '</label>';
+                const otherLabel = otherNames.length ? '<div style="font-size:10px;color:var(--accent);margin-top:1px;">also: ' + otherNames.join(', ') + '</div>' : '';
+                return '<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--surface);border-radius:8px;cursor:pointer;border:1px solid var(--border);">' +
+                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;margin-top:2px;flex-shrink:0;" />' +
+                  '<div><div style="font-size:12px;font-weight:600;">' + c.name + '</div>' + otherLabel + '</div>' +
+                '</label>';
               }).join('') +
             '</div>' +
             (groups.length ?
               '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 5px;">Groups</div>' +
-              '<div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px;">' +
+              '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-bottom:12px;">' +
                 groups.map(c => {
                   const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
                   const isChecked = cPtIds.includes(u.id);
                   const otherPTs = cPtIds.filter(id => id !== u.id);
                   const otherNames = otherPTs.map(id => { const pt = ptUsers.find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
-                  const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">also: ' + otherNames.join(', ') + '</span>' : '';
-                  return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--surface);border-radius:6px;cursor:pointer;font-size:12px;">' +
-                    '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;" />' +
-                    '👥 ' + c.name + otherLabel + '</label>';
+                  const otherLabel = otherNames.length ? '<div style="font-size:10px;color:var(--accent);margin-top:1px;">also: ' + otherNames.join(', ') + '</div>' : '';
+                  return '<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--surface);border-radius:8px;cursor:pointer;border:1px solid var(--border);">' +
+                    '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;margin-top:2px;flex-shrink:0;" />' +
+                    '<div><div style="font-size:12px;font-weight:600;">👥 ' + c.name + '</div>' + otherLabel + '</div>' +
+                  '</label>';
                 }).join('') +
               '</div>'
             : '') +
