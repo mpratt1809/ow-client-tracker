@@ -124,8 +124,8 @@
     .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
     /* ── PANELS ── */
-    .tab-panel { display: none; padding: 22px; max-width: 860px; margin: 0 auto; width: 100%; align-self: flex-start; }
-    .tab-panel.active { display: block; }
+    .tab-panel { display: none; padding: 22px; max-width: 860px; margin: 0 auto; width: 100%; align-self: flex-start; height: 0; overflow: hidden; }
+    .tab-panel.active { display: block; height: auto; overflow: visible; }
     .section-head { font-family: var(--font-head); font-size: 30px; letter-spacing: 3px; margin-bottom: 4px; }
     .section-sub { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
 
@@ -2907,13 +2907,16 @@ async function renderAdminPanel() {
       '<button class="btn-save" onclick="window.createPTAccount()" style="margin-top:4px;">Create Account</button>' +
     '</div>';
 
-    // ── Section 3: PT Accounts ──
+    // ── Section 3: PT Accounts grid ──
     h += '<div class="card" style="margin-bottom:16px;">' +
-      '<div class="card-title">👥 PT Accounts & Client Assignments</div>';
+      '<div class="card-title">👥 PT Accounts & Client Assignments</div>' +
+      '<p style="font-size:12px;color:var(--muted);margin:0 0 16px;">Click ✏️ Assign on any PT to manage which clients and groups they can see. Check multiple PTs for a client to share them.</p>';
 
     if (!ptUsers.length) {
       h += '<div style="color:var(--muted);font-size:13px;padding:8px 0;">No PT accounts yet — create one above.</div>';
     } else {
+      // PT cards grid
+      h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:16px;">';
       ptUsers.forEach(u => {
         const assigned = allClientsRaw.filter(c => {
           const ids = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
@@ -2921,71 +2924,86 @@ async function renderAdminPanel() {
         });
         const assignedGroups = assigned.filter(c => c.isGroup);
         const assignedClients = assigned.filter(c => !c.isGroup);
-        const isActive = u.active !== false; // default active
+        const isActive = u.active !== false;
         const lastLogin = u.lastLogin ? fmtDate(u.lastLogin.split('T')[0]) : 'Never';
-        const sessCount = u.sessionCount || 0;
 
-        h += '<div style="border-bottom:1px solid var(--border);padding:14px 0;" id="pt-row-' + u.id + '">' +
-          // PT header row
-          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
-            '<div style="flex:1;">' +
-              '<div style="display:flex;align-items:center;gap:8px;">' +
+        h += '<div style="background:var(--surface);border-radius:10px;padding:14px;border:1px solid var(--border);">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+            '<div>' +
+              '<div style="display:flex;align-items:center;gap:7px;">' +
                 '<span style="font-weight:700;font-size:14px;">' + u.name + '</span>' +
-                (isActive
-                  ? '<span class="suggestion-badge sug-hold" style="font-size:10px;">Active</span>'
-                  : '<span class="suggestion-badge sug-deload" style="font-size:10px;">Inactive</span>') +
+                (isActive ? '<span class="suggestion-badge sug-hold" style="font-size:10px;">Active</span>'
+                          : '<span class="suggestion-badge sug-deload" style="font-size:10px;">Inactive</span>') +
               '</div>' +
-              '<div style="font-size:12px;color:var(--muted);margin-top:3px;">' +
-                u.email + ' · ' + assignedClients.length + ' client' + (assignedClients.length !== 1 ? 's' : '') +
-                (assignedGroups.length ? ' · ' + assignedGroups.length + ' group' + (assignedGroups.length !== 1 ? 's' : '') : '') +
-                ' · Last login: ' + lastLogin +
-              '</div>' +
-            '</div>' +
-            // Action buttons
-            '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
-              '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">✏️ Assign</button>' +
-              '<button class="ex-set-btn" data-ptemail="' + u.email + '" data-ptname="' + u.name + '" onclick="window.confirmResetPassword(this.dataset.ptemail, this.dataset.ptname)">🔑 Reset PW</button>' +
-              (isActive
-                ? '<button class="ex-set-btn" style="color:var(--danger);" data-ptid="' + u.id + '" data-ptname="' + u.name + '" onclick="window.confirmDeactivate(this.dataset.ptid, this.dataset.ptname)">🚫 Deactivate</button>'
-                : '<button class="ex-set-btn" style="color:#4caf50;" data-ptid="' + u.id + '" data-ptname="' + u.name + '" onclick="window.reactivatePT(this.dataset.ptid, this.dataset.ptname)">✅ Reactivate</button>') +
+              '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + u.email + '</div>' +
+              '<div style="font-size:11px;color:var(--muted);margin-top:1px;">Last login: ' + lastLogin + '</div>' +
             '</div>' +
           '</div>' +
+          // Client list
+          '<div style="margin-bottom:10px;">' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Clients (' + assignedClients.length + ')</div>' +
+            (assignedClients.length
+              ? '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
+                  assignedClients.map(c => '<span style="font-size:11px;background:var(--surface2);border-radius:5px;padding:2px 8px;">' + c.name + '</span>').join('') +
+                '</div>'
+              : '<div style="font-size:11px;color:var(--muted);font-style:italic;">None assigned</div>') +
+          '</div>' +
+          // Groups list
+          (groups.length ? '<div style="margin-bottom:10px;">' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Groups (' + assignedGroups.length + ')</div>' +
+            (assignedGroups.length
+              ? '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
+                  assignedGroups.map(c => '<span style="font-size:11px;background:var(--surface2);border-radius:5px;padding:2px 8px;">👥 ' + c.name + '</span>').join('') +
+                '</div>'
+              : '<div style="font-size:11px;color:var(--muted);font-style:italic;">None assigned</div>') +
+          '</div>' : '') +
+          // Action buttons
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">' +
+            '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">✏️ Assign Clients</button>' +
+            '<button class="ex-set-btn" data-ptemail="' + u.email + '" data-ptname="' + u.name + '" onclick="window.confirmResetPassword(this.dataset.ptemail, this.dataset.ptname)">🔑 Reset PW</button>' +
+            (isActive
+              ? '<button class="ex-set-btn" style="color:var(--danger);" data-ptid="' + u.id + '" data-ptname="' + u.name + '" onclick="window.confirmDeactivate(this.dataset.ptid, this.dataset.ptname)">🚫 Deactivate</button>'
+              : '<button class="ex-set-btn" style="color:#4caf50;" data-ptid="' + u.id + '" data-ptname="' + u.name + '" onclick="window.reactivatePT(this.dataset.ptid, this.dataset.ptname)">✅ Reactivate</button>') +
+          '</div>' +
           // Inline assign panel
-          '<div id="assign-' + u.id + '" style="display:none;margin-top:12px;background:var(--surface);border-radius:10px;padding:14px;">' +
-            '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Assign clients to ' + u.name + '</div>' +
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 6px;">Clients</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:200px;overflow-y:auto;margin-bottom:12px;">' +
+          '<div id="assign-' + u.id + '" style="display:none;margin-top:12px;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border);">' +
+            '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;">✏️ Assigning clients to ' + u.name + '</div>' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 5px;">Clients</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:10px;">' +
               clients.map(c => {
                 const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
                 const isChecked = cPtIds.includes(u.id);
                 const otherPTs = cPtIds.filter(id => id !== u.id);
-                const otherNames = otherPTs.map(id => { const pt = (window._adminPtUsers||[]).find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
-                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">+' + otherNames.join(',') + '</span>' : '';
-                return '<label style="display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;">' +
+                const otherNames = otherPTs.map(id => { const pt = ptUsers.find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
+                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">also: ' + otherNames.join(', ') + '</span>' : '';
+                return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--surface);border-radius:6px;cursor:pointer;font-size:12px;">' +
                   '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;" />' +
                   c.name + otherLabel + '</label>';
               }).join('') +
             '</div>' +
-            (groups.length ? '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 6px;">Groups</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;">' +
-              groups.map(c => {
-                const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
-                const isChecked = cPtIds.includes(u.id);
-                const otherPTs = cPtIds.filter(id => id !== u.id);
-                const otherNames = otherPTs.map(id => { const pt = (window._adminPtUsers||[]).find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
-                const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">+' + otherNames.join(',') + '</span>' : '';
-                return '<label style="display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;border:1px solid rgba(255,255,255,0.06);">' +
-                  '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;" />' +
-                  '👥 ' + c.name + otherLabel + '</label>';
-              }).join('') +
-            '</div>' : '') +
-            '<div style="display:flex;gap:8px;margin-top:12px;">' +
-              '<button class="btn-save" data-ptid="' + u.id + '" onclick="window.saveAssignments(this.dataset.ptid)">Save</button>' +
+            (groups.length ?
+              '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 5px;">Groups</div>' +
+              '<div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px;">' +
+                groups.map(c => {
+                  const cPtIds = Array.isArray(c.ptIds) ? c.ptIds : (c.ptId ? [c.ptId] : []);
+                  const isChecked = cPtIds.includes(u.id);
+                  const otherPTs = cPtIds.filter(id => id !== u.id);
+                  const otherNames = otherPTs.map(id => { const pt = ptUsers.find(p => p.id === id); return pt ? pt.name.split(' ')[0] : '?'; });
+                  const otherLabel = otherNames.length ? ' <span style="font-size:10px;color:var(--accent);">also: ' + otherNames.join(', ') + '</span>' : '';
+                  return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--surface);border-radius:6px;cursor:pointer;font-size:12px;">' +
+                    '<input type="checkbox" class="assign-cb-' + u.id + '" data-client="' + c.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:14px;height:14px;cursor:pointer;" />' +
+                    '👥 ' + c.name + otherLabel + '</label>';
+                }).join('') +
+              '</div>'
+            : '') +
+            '<div style="display:flex;gap:8px;">' +
+              '<button class="btn-save" data-ptid="' + u.id + '" onclick="window.saveAssignments(this.dataset.ptid)">💾 Save</button>' +
               '<button class="ex-set-btn" data-ptid="' + u.id + '" onclick="window.toggleAssignPanel(this.dataset.ptid)">Cancel</button>' +
             '</div>' +
           '</div>' +
         '</div>';
       });
+      h += '</div>';
     }
     h += '</div>';
 
