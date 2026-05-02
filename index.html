@@ -3332,20 +3332,22 @@ window.addGroupExRow = function() {
 };
 
 window.showGroupExSuggestions = function(id, input) {
+  // Reuse existing suggestion logic — fake the exRowCount-based id
+  const fakeId = 'g_' + id;
+  // Manually build suggestions using shared MASTER_EXERCISES
   const q = input.value.trim().toLowerCase();
   const dropdown = document.getElementById('ex-suggestions-' + id);
   if (!dropdown) return;
-  const safeQ = q.replace(/[.*+?^${}()|[\]\]/g, '\$&');
   const matches = q.length < 1
     ? MASTER_EXERCISES.slice(0, 8).map(n => ({ name: n, mine: clientSessions.some(s => s.exercise === n) }))
-    : MASTER_EXERCISES.filter(n => n.toLowerCase().includes(q))
-        .slice(0, 12).map(n => ({ name: n, mine: clientSessions.some(s => s.exercise === n) }));
+    : MASTER_EXERCISES.filter(n => n.toLowerCase().includes(q)).slice(0, 12)
+        .map(n => ({ name: n, mine: clientSessions.some(s => s.exercise === n) }));
   if (!matches.length) { dropdown.classList.remove('open'); return; }
-  const itemsHTML = matches.map(item =>
-    '<div class="ex-sug-item' + (item.mine ? ' ex-sug-mine' : '') + '" data-name="' + item.name.replace(/"/g,'&quot;') + '">' +
-    (q ? item.name.replace(new RegExp('(' + safeQ + ')','gi'),'<mark>$1</mark>') : item.name) +
-    (item.mine ? '<span class="ex-sug-tag">this client</span>' : '') + '</div>'
-  ).join('');
+  const itemsHTML = matches.map(item => {
+    const esc = item.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return '<div class="ex-sug-item' + (item.mine ? ' ex-sug-mine' : '') + '" data-name="' + esc + '">' +
+      item.name + (item.mine ? '<span class="ex-sug-tag">this client</span>' : '') + '</div>';
+  }).join('');
   dropdown.innerHTML = (!q ? '<div class="ex-sug-group-label">Recent &amp; suggested</div>' : '') + itemsHTML;
   dropdown.querySelectorAll('.ex-sug-item').forEach(el => {
     el.addEventListener('mousedown', function(e) {
