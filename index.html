@@ -891,7 +891,7 @@
         <label>PR Achieved?</label>
         <select id="log-pr"><option value="false">No</option><option value="true">Yes — PR! 🏆</option></select>
       </div>
-      <button class="btn-primary" id="save-btn" onclick="currentClient?.isGroup ? window.saveGroupSession() : saveSession()">💾 SAVE SESSION</button>
+      <button class="btn-primary" id="save-btn" onclick="window.handleSaveSession()">💾 SAVE SESSION</button>
     </div>
   </div>
 
@@ -1903,6 +1903,14 @@ function recalcWeekForDate(dateStr) {
     document.getElementById('log-week').value = closestBeforeWeek + 1;
   }
 }
+
+window.handleSaveSession = function() {
+  if (currentClient && currentClient.isGroup) {
+    window.saveGroupSession();
+  } else {
+    window.saveSession();
+  }
+};
 
 window.saveSession = async function() {
   if (!currentClient) return;
