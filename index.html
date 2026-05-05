@@ -1562,6 +1562,32 @@ function renderOverview() {
       const rows = s.filter(x => x.date === date);
       const focus = rows[0]?.focus || '';
       const note = rows.find(r => r.sessionNotes)?.sessionNotes || '';
+
+      // ── Group summary: render attendance + exercises instead of normal rows ──
+      const summaryRow = rows.find(r => r.groupSession && r.exercise === 'Session Summary');
+      if (summaryRow) {
+        const attended = summaryRow.exNotes || '';
+        const exercises = Array.isArray(summaryRow.exercises) ? summaryRow.exercises : [];
+        const exRowsHTML = '<div style="padding:4px 0;">' +
+          (attended ? '<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">👥 ' + attended + '</div>' : '') +
+          (exercises.length ? '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
+            exercises.map(ex => '<span class="event-ex-pill">' + ex + '</span>').join('') +
+          '</div>' : '') +
+          (note ? '<div class="note-line" style="margin-top:6px;">📋 ' + note + '</div>' : '') +
+        '</div>';
+        return '<div class="visit-card">' +
+          '<div class="visit-card-header" onclick="toggleVisitCard(this)">' +
+            '<div class="visit-meta">' +
+              '<span class="visit-date">' + fmtDate(date) + '</span>' +
+              '<span class="focus-pill ' + getFocusClass(focus) + '">' + (focus||'Group') + '</span>' +
+              '<span style="font-size:11px;color:var(--muted);">' + (summaryRow.attendance ? summaryRow.attendance.length : 0) + ' members</span>' +
+            '</div>' +
+            '<span class="visit-chevron">▾</span>' +
+          '</div>' +
+          '<div class="visit-body open">' + exRowsHTML + '</div>' +
+        '</div>';
+      }
+
       const exNames = [...new Set(rows.map(r => r.exercise))];
       const exRowsHTML = exNames.map(exName => {
         const e = rows.find(r => r.exercise === exName);
@@ -2034,10 +2060,45 @@ window.renderHistory = function() {
   list.innerHTML = sortedDates.map((date, idx) => {
     const rows = byDate[date];
     const focus = rows[0]?.focus || '';
+    // ── Group summary card ──
+    const summaryRow = rows.find(r => r.groupSession && r.exercise === 'Session Summary');
     const week = rows[0]?.week;
     const exNames = [...new Set(rows.map(r => r.exercise))].join(' · ');
     const note = rows.find(r => r.sessionNotes)?.sessionNotes || '';
     const hasPR = rows.some(r => r.pr);
+    // Render group summary differently
+    if (summaryRow) {
+      const exercises = Array.isArray(summaryRow.exercises) ? summaryRow.exercises : [];
+      const attended = summaryRow.exNotes || '';
+      const note = rows.find(r => r.sessionNotes)?.sessionNotes || '';
+      const exRows = '<div style="padding:6px 0;">' +
+        (attended ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">👥 ' + attended + '</div>' : '') +
+        (exercises.length ? '<div style="margin-bottom:8px;"><div class="event-section-label">Exercises</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:5px;">' +
+            exercises.map(ex => '<span class="event-ex-pill">' + ex + '</span>').join('') +
+          '</div></div>' : '') +
+        (note ? '<div class="note-line">📋 ' + note + '</div>' : '') +
+      '</div>';
+      const wk = rows[0]?.week ? 'Wk ' + rows[0].week : '';
+      return '<div class="history-card">' +
+        '<div class="history-header" onclick="toggleDetail(' + idx + ')">' +
+          '<div class="history-left">' +
+            '<div class="history-date">' + fmtDate(date) + (wk ? ' <span class="history-wk">' + wk + '</span>' : '') + '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">' +
+              '<span class="focus-pill ' + getFocusClass(focus) + ' focus-pill-editable" onclick="openFocusEdit('' + date + '')" title="Click to edit focus">' + (focus||'Group') + ' ✎</span>' +
+              '<span style="font-size:11px;color:var(--muted);">' + (summaryRow.attendance ? summaryRow.attendance.length : 0) + ' members · ' + exercises.length + ' exercises</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="history-right">' +
+            '<div class="history-chevron" id="chev-' + idx + '"' + (date === todayStr() ? ' style="transform:rotate(180deg)"' : '') + '>▾</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="history-detail' + (date === todayStr() ? ' open' : '') + '" id="hd-' + idx + '">' +
+          exRows +
+        '</div>' +
+      '</div>';
+    }
+
     const exRows = [...new Set(rows.map(r=>r.exercise))].map(exName => {
       const e = rows.find(r => r.exercise===exName);
       const exNote = rows.find(r => r.exercise===exName && r.exNotes)?.exNotes || '';
