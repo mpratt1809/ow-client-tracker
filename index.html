@@ -477,6 +477,9 @@
     .event-turnout { font-size:13px;font-weight:700;color:var(--accent); }
     .event-chevron { color:var(--muted);font-size:14px;transition:transform 0.2s;flex-shrink:0; }
     .event-section-label { font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:10px 0 6px; }
+    .ev-station-block { background:var(--surface);border-radius:8px;padding:10px 12px;border:1px solid var(--border); }
+    .ev-station-label { background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:2px 0;color:var(--text); }
+    .ev-station-label:focus { outline:none;border-bottom-color:var(--accent); }
     .event-ex-pill { font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--text); }
 
     /* ── COMMUNITY EVENTS ── */
@@ -488,6 +491,9 @@
     .event-turnout { font-size:13px;font-weight:700;color:var(--accent); }
     .event-chevron { color:var(--muted);font-size:14px;transition:transform 0.2s;flex-shrink:0;margin-top:2px; }
     .event-section-label { font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:8px 0 5px; }
+    .ev-station-block { background:var(--surface);border-radius:8px;padding:10px 12px;border:1px solid var(--border); }
+    .ev-station-label { background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:2px 0;color:var(--text); }
+    .ev-station-label:focus { outline:none;border-bottom-color:var(--accent); }
     .event-ex-pill { font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--text); }
 
     /* ── GROUP SESSION ── */
@@ -1420,6 +1426,8 @@ window.goBack = function() {
   cs.classList.add('visible');
   window.scrollTo(0, 0);
   currentClient = null; clientSessions = [];
+  groupAttendees = []; // clear any lingering group state
+  groupExCount = 0;
   if (progressChart) { progressChart.destroy(); progressChart = null; }
   if (weeklyChart) { weeklyChart.destroy(); weeklyChart = null; }
   Object.values(sparklineCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
@@ -1660,15 +1668,18 @@ async function initLogForm() {
 
   // ── Group session setup ──
   const attSection = document.getElementById('group-attendance-section');
-  const addExBtn = document.querySelector('[onclick="addExRow()"]');
+  const addExBtn = document.querySelector('[onclick="addExRow()"], [onclick="window.addGroupExRow()"]');
   if (currentClient.isGroup) {
-    // Show attendance picker
     attSection.style.display = 'block';
+    groupAttendees = []; // reset attendees for fresh group session
+    groupExCount = 0;
     await renderAttendancePills();
-    // Replace Add Exercise button behavior
     if (addExBtn) addExBtn.setAttribute('onclick', 'window.addGroupExRow()');
-    window.addGroupExRow(); // start with one exercise
+    window.addGroupExRow();
   } else {
+    // Always reset group state when opening individual session
+    groupAttendees = [];
+    groupExCount = 0;
     attSection.style.display = 'none';
     if (addExBtn) addExBtn.setAttribute('onclick', 'addExRow()');
     addExRow();
@@ -3355,7 +3366,18 @@ function renderEventSessions(sessions) {
         '</div>' +
       '</div>' +
       '<div class="event-card-body" id="ev-body-' + i + '" style="display:none;">' +
-        (exercises.length ?
+        (s.stations && s.stations.length ?
+          '<div style="margin-bottom:10px;">' +
+            s.stations.map(st =>
+              '<div style="margin-bottom:8px;">' +
+                (st.label ? '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">' + st.label + '</div>' : '') +
+                '<div style="display:flex;flex-direction:column;gap:3px;padding-left:10px;border-left:2px solid var(--border);">' +
+                  (st.exercises||[]).map(ex => '<span style="font-size:13px;color:var(--text);">· ' + ex + '</span>').join('') +
+                '</div>' +
+              '</div>'
+            ).join('') +
+          '</div>'
+        : exercises.length ?
           '<div style="margin-bottom:10px;">' +
             '<div class="event-section-label">Exercises</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
@@ -3406,12 +3428,11 @@ window.openLogSessionModal = async function(preselectedEventId) {
   document.getElementById('ev-date').value = todayStr();
   document.getElementById('ev-turnout').value = '';
   document.getElementById('ev-notes').value = '';
-  document.getElementById('ev-exercises').innerHTML = '';
+  document.getElementById('ev-stations').innerHTML = '';
+  evStationCount = 0;
   document.getElementById('new-event-name-group').style.display = 'none';
   document.getElementById('ev-session-fields').style.display = 'none';
-  window.addEventExercise();
-  window.addEventExercise();
-  window.addEventExercise();
+  window.addEventStation('Station');
 
   // Populate picker with existing events
   const picker = document.getElementById('ev-picker');
@@ -3448,13 +3469,46 @@ window.onEventPicked = function(val) {
 };
 
 window.addEventExercise = function() {
-  const container = document.getElementById('ev-exercises');
+  window.addEventStation('Station');
+};
+
+let evStationCount = 0;
+window.addEventStation = function(labelHint) {
+  evStationCount++;
+  const container = document.getElementById('ev-stations');
+  if (!container) return;
+  const block = document.createElement('div');
+  block.className = 'ev-station-block';
+  const labelVal = labelHint === 'Push' ? 'Push' : (labelHint + ' ' + evStationCount);
+  block.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+      '<input type="text" class="ev-station-label" placeholder="e.g. Station 1, Push, Circuit A..." ' +
+        'value="' + labelVal + '" style="flex:1;font-weight:700;font-size:13px;" />' +
+      '<button class="remove-row-btn" onclick="this.closest(\'.ev-station-block\').remove()">✕</button>' +
+    '</div>' +
+    '<div class="ev-station-exercises" style="display:flex;flex-direction:column;gap:5px;padding-left:12px;border-left:2px solid var(--border);"></div>' +
+    '<button class="btn-add-row" onclick="window.addExerciseToStation(this)" ' +
+      'style="margin-top:6px;margin-left:12px;font-size:11px;">＋ Add Exercise</button>';
+  container.appendChild(block);
+  // Add Pull and Legs if Push preset
+  if (labelHint === 'Push') {
+    window.addExerciseToStation(block.querySelector('.btn-add-row'));
+    window.addEventStation('Pull'); window.addEventStation('Legs');
+    return;
+  }
+  window.addExerciseToStation(block.querySelector('.btn-add-row'));
+};
+
+window.addExerciseToStation = function(btn) {
+  const exContainer = btn.closest('.ev-station-block').querySelector('.ev-station-exercises');
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;align-items:center;';
   row.innerHTML =
-    '<input type="text" class="ev-exercise-input" placeholder="Exercise name" autocomplete="off" style="flex:1;" />' +
-    '<button class="remove-row-btn" onclick="this.parentElement.remove()">✕</button>';
-  container.appendChild(row);
+    '<input type="text" class="ev-exercise-input" ' +
+      'placeholder="e.g. 8 bench press, 3x5 squats..." autocomplete="off" style="flex:1;font-size:13px;" />' +
+    '<button class="remove-row-btn" style="flex-shrink:0;" onclick="this.parentElement.remove()">✕</button>';
+  exContainer.appendChild(row);
+  row.querySelector('input').focus();
 };
 
 window.saveEventSession = async function() {
@@ -3462,8 +3516,16 @@ window.saveEventSession = async function() {
   const date = document.getElementById('ev-date').value;
   const turnout = parseInt(document.getElementById('ev-turnout').value) || 0;
   const notes = document.getElementById('ev-notes').value.trim();
-  const exercises = [...document.querySelectorAll('.ev-exercise-input')]
-    .map(i => i.value.trim()).filter(Boolean);
+  // Collect stations with their exercises
+  const stations = [];
+  document.querySelectorAll('.ev-station-block').forEach(block => {
+    const label = block.querySelector('.ev-station-label')?.value.trim() || '';
+    const exercises = [...block.querySelectorAll('.ev-exercise-input')]
+      .map(i => i.value.trim()).filter(Boolean);
+    if (label || exercises.length) stations.push({ label, exercises });
+  });
+  // Flat list of all exercises for summary
+  const exercises = stations.flatMap(s => s.exercises);
   const loggedBy = currentUserData?.name || currentUser?.email || 'PT';
 
   if (!pickerVal) return showToast('⚠️ Please select or create an event');
@@ -3491,7 +3553,7 @@ window.saveEventSession = async function() {
 
     // Save the session
     await addDoc(collection(db, 'eventSessions'), {
-      eventId, date, turnout, exercises, notes, loggedBy,
+      eventId, date, turnout, stations, exercises, notes, loggedBy,
       createdAt: new Date().toISOString()
     });
 
@@ -4282,9 +4344,24 @@ onAuthStateChanged(auth, async (user) => {
             <div class="form-group"><label>Turnout (#)</label><input type="number" id="ev-turnout" placeholder="e.g. 24" min="1" /></div>
           </div>
           <div class="form-group">
-            <label>Exercises Done</label>
-            <div id="ev-exercises" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
-            <button class="btn-add-row" onclick="window.addEventExercise()">＋ Add Exercise</button>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <label style="margin:0;">Stations / Circuits</label>
+              <div style="display:flex;gap:6px;">
+                <button class="ex-set-btn" style="font-size:11px;" onclick="window.addEventStation('Station')">＋ Station</button>
+                <button class="ex-set-btn" style="font-size:11px;" onclick="window.addEventStation('Circuit')">＋ Circuit</button>
+                <button class="ex-set-btn" style="font-size:11px;" onclick="window.addEventStation('Push')">Push/Pull/Legs</button>
+              </div>
+            </div>
+            <div id="ev-stations" style="display:flex;flex-direction:column;gap:10px;"></div>
+          </div>
+          <div class="form-group"><label>Notes / Comments</label>
+            <textarea id="ev-notes" placeholder="How it went, who joined, anything notable..." style="min-height:70px;"></textarea>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px;">
+            <button class="btn-save" onclick="window.saveEventSession()" style="flex:1;">💾 Save Session</button>
+            <button class="ex-set-btn" onclick="window.closeLogSessionModal()">Cancel</button>
+          </div>
+         Exercise</button>
           </div>
           <div class="form-group"><label>Notes / Comments</label>
             <textarea id="ev-notes" placeholder="How it went, who joined, anything notable..." style="min-height:70px;"></textarea>
