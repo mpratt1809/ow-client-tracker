@@ -2071,40 +2071,34 @@ window.renderHistory = function() {
       const exercises = Array.isArray(summaryRow.exercises) ? summaryRow.exercises : [];
       const attended = summaryRow.exNotes || '';
       const note = rows.find(r => r.sessionNotes)?.sessionNotes || '';
-      const exRows = '<div style="padding:6px 0;">' +
-        (attended ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">👥 ' + attended + '</div>' : '') +
-        (exercises.length ? '<div style="margin-bottom:8px;"><div class="event-section-label">Exercises</div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:5px;">' +
-            exercises.map(ex => '<span class="event-ex-pill">' + ex + '</span>').join('') +
-          '</div></div>' : '') +
-        (note ? '<div class="note-line">📋 ' + note + '</div>' : '') +
-      '</div>';
       const wk = rows[0]?.week ? 'Wk ' + rows[0].week : '';
+      const memberCount = summaryRow.attendance ? summaryRow.attendance.length : 0;
+      const exPreview = exercises.slice(0,3).join(' · ') + (exercises.length > 3 ? ' +' + (exercises.length-3) + ' more' : '');
+      const detailHTML =
+        (attended ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">👥 ' + attended + '</div>' : '') +
+        (exercises.length ? '<div class="event-section-label">Exercises</div><div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">' +
+          exercises.map(ex => '<span class="event-ex-pill">' + ex + '</span>').join('') + '</div>' : '') +
+        (note ? '<div class="note-line">📋 ' + note + '</div>' : '');
       return '<div class="history-card">' +
         '<div class="history-header" onclick="toggleDetail(' + idx + ')">' +
           '<div class="history-left">' +
             '<div class="history-date">' + fmtDate(date) + (wk ? ' <span class="history-wk">' + wk + '</span>' : '') + '</div>' +
-            '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">' +
+            '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">' +
               '<span class="focus-pill ' + getFocusClass(focus) + ' focus-pill-editable" onclick="openFocusEdit(\'' + date + '\')" title="Click to edit focus">' + (focus||'Group') + ' ✎</span>' +
-              '<span style="font-size:11px;color:var(--muted);">' + (summaryRow.attendance ? summaryRow.attendance.length : 0) + ' members · ' + exercises.length + ' exercises</span>' +
+              '<span style="font-size:11px;color:var(--muted);">' + memberCount + ' members</span>' +
             '</div>' +
+            (exPreview ? '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + exPreview + '</div>' : '') +
           '</div>' +
-          '<div class="history-right">' +
+          '<div class="history-right" style="display:flex;align-items:center;gap:8px;">' +
+            '<div class="history-badge">' + exercises.length + ' ex</div>' +
             '<div class="history-chevron" id="chev-' + idx + '"' + (date === todayStr() ? ' style="transform:rotate(180deg)"' : '') + '>▾</div>' +
           '</div>' +
         '</div>' +
         '<div class="history-detail' + (date === todayStr() ? ' open' : '') + '" id="hd-' + idx + '">' +
-          exRows +
+          detailHTML +
         '</div>' +
       '</div>';
     }
-
-    const exRows = [...new Set(rows.map(r=>r.exercise))].map(exName => {
-      const e = rows.find(r => r.exercise===exName);
-      const exNote = rows.find(r => r.exercise===exName && r.exNotes)?.exNotes || '';
-      const sug = getSuggestion(exName);
-      let setsHTML = '';
-      if (e?.setsData && e.setsData.length) {
         setsHTML = e.setsData.map((s, i) => {
           const rpeClass = s.rpe ? (parseFloat(s.rpe)<=6?'rpe-easy':parseFloat(s.rpe)<=8?'rpe-medium':'rpe-hard') : '';
           return '<div class="hist-set-row">' +
