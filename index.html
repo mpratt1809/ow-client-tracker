@@ -2111,7 +2111,7 @@ window.renderHistory = function() {
         }).join('');
         const heaviest = Math.max(...e.setsData.map(s=>parseFloat(s.weight)||0));
         if (heaviest > 0) setsHTML += '<div class="hist-heaviest">🏋 Heaviest: '+heaviest+' lbs</div>';
-      } else {
+      else {
         const rpeNum = parseFloat(e?.rpe||(e?.effortScale==='rpe'?e?.effortVal:''))||null;
         const pctNum = parseFloat(e?.pct||(e?.effortScale==='pct'?e?.effortVal:''))||null;
         const rpeClass = rpeNum?(rpeNum<=6?'rpe-easy':rpeNum<=8?'rpe-medium':'rpe-hard'):'';
