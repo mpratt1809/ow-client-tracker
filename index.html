@@ -2085,7 +2085,7 @@ window.renderHistory = function() {
           '<div class="history-left">' +
             '<div class="history-date">' + fmtDate(date) + (wk ? ' <span class="history-wk">' + wk + '</span>' : '') + '</div>' +
             '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">' +
-              '<span class="focus-pill ' + getFocusClass(focus) + ' focus-pill-editable" onclick="openFocusEdit('' + date + '')" title="Click to edit focus">' + (focus||'Group') + ' ✎</span>' +
+              '<span class="focus-pill ' + getFocusClass(focus) + ' focus-pill-editable" onclick="openFocusEdit(\'' + date + '\')" title="Click to edit focus">' + (focus||'Group') + ' ✎</span>' +
               '<span style="font-size:11px;color:var(--muted);">' + (summaryRow.attendance ? summaryRow.attendance.length : 0) + ' members · ' + exercises.length + ' exercises</span>' +
             '</div>' +
           '</div>' +
