@@ -2150,7 +2150,7 @@ window.renderHistory = function() {
       '<div class="history-detail' + (date === todayStr() ? ' open' : '') + '" id="hd-' + idx + '">' +
 
       exRows + (note?'<div class="note-line" style="margin-top:6px;">📋 '+note+'</div>':'') + '</div></div>';
-  }).join('');
+  }.join('');
 };
 
 window.toggleDetail = function(idx) {
