@@ -2079,15 +2079,18 @@ window.renderHistory = function() {
         (exercises.length ? '<div class="event-section-label">Exercises</div><div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">' +
           exercises.map(ex => '<span class="event-ex-pill">' + ex + '</span>').join('') + '</div>' : '') +
         (note ? '<div class="note-line">📋 ' + note + '</div>' : '');
-      return '<div class="history-card">' +
-        '<div class="history-header" onclick="toggleDetail(' + idx + ')">' +
-          '<div class="history-left">' +
-            '<div class="history-date">' + fmtDate(date) + (wk ? ' <span class="history-wk">' + wk + '</span>' : '') + '</div>' +
-            '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">' +
+      return '<div class="history-entry">' +
+        '<div class="history-entry-header" onclick="toggleDetail(' + idx + ')">' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">' +
+              '<span class="history-date">' + fmtDate(date) + '</span>' +
+              (wk ? '<span class="week-badge">' + wk + '</span>' : '') +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">' +
               '<span class="focus-pill ' + getFocusClass(focus) + ' focus-pill-editable" onclick="openFocusEdit(\'' + date + '\')" title="Click to edit focus">' + (focus||'Group') + ' ✎</span>' +
               '<span style="font-size:11px;color:var(--muted);">' + memberCount + ' members</span>' +
             '</div>' +
-            (exPreview ? '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + exPreview + '</div>' : '') +
+            (exPreview ? '<div class="history-exlist">' + exPreview + '</div>' : '') +
           '</div>' +
           '<div class="history-right" style="display:flex;align-items:center;gap:8px;">' +
             '<div class="history-badge">' + exercises.length + ' ex</div>' +
