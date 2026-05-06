@@ -2099,6 +2099,14 @@ window.renderHistory = function() {
         '</div>' +
       '</div>';
     }
+
+    // Regular session card
+    const exRows = [...new Set(rows.map(r=>r.exercise))].map(exName => {
+      const e = rows.find(r => r.exercise===exName);
+      const exNote = rows.find(r => r.exercise===exName && r.exNotes)?.exNotes || '';
+      const sug = getSuggestion(exName);
+      let setsHTML = '';
+      if (e?.setsData && e.setsData.length) {
         setsHTML = e.setsData.map((s, i) => {
           const rpeClass = s.rpe ? (parseFloat(s.rpe)<=6?'rpe-easy':parseFloat(s.rpe)<=8?'rpe-medium':'rpe-hard') : '';
           return '<div class="hist-set-row">' +
@@ -2111,7 +2119,7 @@ window.renderHistory = function() {
         }).join('');
         const heaviest = Math.max(...e.setsData.map(s=>parseFloat(s.weight)||0));
         if (heaviest > 0) setsHTML += '<div class="hist-heaviest">🏋 Heaviest: '+heaviest+' lbs</div>';
-      else {
+      } else {
         const rpeNum = parseFloat(e?.rpe||(e?.effortScale==='rpe'?e?.effortVal:''))||null;
         const pctNum = parseFloat(e?.pct||(e?.effortScale==='pct'?e?.effortVal:''))||null;
         const rpeClass = rpeNum?(rpeNum<=6?'rpe-easy':rpeNum<=8?'rpe-medium':'rpe-hard'):'';
@@ -2133,6 +2141,7 @@ window.renderHistory = function() {
         (exNote ? '<div class="note-line">📝 '+exNote+'</div>' : '') +
       '</div>';
     }).join('');
+
     return '<div class="history-entry">' +
       '<div class="history-entry-header" onclick="toggleDetail(' + idx + ')">' +
       '<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">' +
@@ -2148,10 +2157,10 @@ window.renderHistory = function() {
       '<div class="history-badge">' + rows.length + ' ex</div>' +
       '<div class="history-chevron" id="chev-'+idx+'"' + (date === todayStr() ? ' style="transform:rotate(180deg)"' : '') + '>▾</div></div></div>' +
       '<div class="history-detail' + (date === todayStr() ? ' open' : '') + '" id="hd-' + idx + '">' +
-
       exRows + (note?'<div class="note-line" style="margin-top:6px;">📋 '+note+'</div>':'') + '</div></div>';
-  }.join('');
+  }).join('');
 };
+
 
 window.toggleDetail = function(idx) {
   const d = document.getElementById('hd-' + idx);
