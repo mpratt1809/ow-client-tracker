@@ -3428,7 +3428,8 @@ function renderLibraryPanel() {
 
   // Filter exercises
   let filtered = libraryExercises.filter(ex => {
-    const matchCat = libraryCatFilter === 'All' || ex.category === libraryCatFilter;
+    const exCats = Array.isArray(ex.categories) && ex.categories.length ? ex.categories : (ex.category ? [ex.category] : []);
+    const matchCat = libraryCatFilter === 'All' || exCats.includes(libraryCatFilter);
     const matchSearch = !librarySearch || ex.name.toLowerCase().includes(librarySearch.toLowerCase());
     return matchCat && matchSearch;
   });
@@ -3446,7 +3447,7 @@ function renderLibraryPanel() {
     return '<div class="library-card" onclick="window.openExerciseModal(\'' + ex.id + '\')">' +
       thumbHTML +
       '<div class="library-card-body">' +
-        '<div class="library-card-cat">' + (ex.category||'') + '</div>' +
+        '<div class="library-card-cat">' + (Array.isArray(ex.categories) && ex.categories.length ? ex.categories.join(' · ') : (ex.category||'')) + '</div>' +
         '<div class="library-card-name">' + ex.name + '</div>' +
         '<div class="library-card-tags">' + tags + '</div>' +
       '</div>' +
@@ -3511,8 +3512,9 @@ window.openExerciseModal = function(exId) {
     ? getVideoEmbed(ex.videoUrl)
     : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px;">No video available yet</div>';
   const isPT = currentUserRole === 'pt' || currentUserRole === 'admin';
+  const exCats = Array.isArray(ex.categories) && ex.categories.length ? ex.categories : (ex.category ? [ex.category] : []);
   const tags = [
-    (ex.category ? '<span class="suggestion-badge sug-hold" style="font-size:11px;">' + ex.category + '</span>' : ''),
+    ...exCats.map(c => '<span class="suggestion-badge sug-hold" style="font-size:11px;">' + c + '</span>'),
     ...(ex.muscleTags||[]).map(t => '<span class="library-tag" style="font-size:12px;padding:4px 10px;">' + t + '</span>')
   ].join('');
   document.getElementById('ev-modal-tags').innerHTML = tags +
@@ -3561,30 +3563,34 @@ window.closeExerciseEditModal = function() {
 
 function renderExerciseEditForm(ex) {
   const isAdmin = currentUserRole === 'admin';
-  const muscles = ex?.category ? (LIBRARY_MUSCLES[ex.category] || []) : [];
+  const selectedCats = Array.isArray(ex?.categories) ? ex.categories : (ex?.category ? [ex.category] : []);
   const selectedTags = ex?.muscleTags || [];
+  const allMuscles = [...new Set(Object.values(LIBRARY_MUSCLES).flat())].sort();
 
-  let muscleHTML = '';
-  if (ex?.category && LIBRARY_MUSCLES[ex.category]) {
-    muscleHTML = '<div class="form-group"><label>Muscle Groups</label>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">' +
-      LIBRARY_MUSCLES[ex.category].map(m =>
-        '<button type="button" class="muscle-tag-btn' + (selectedTags.includes(m) ? ' selected' : '') + '" ' +
-        'onclick="toggleMuscleTag(this,\'' + m + '\')">' + m + '</button>'
-      ).join('') +
-      '</div></div>';
-  }
+  const catBtns = LIBRARY_CATEGORIES.filter(c => c !== 'All').map(c =>
+    '<button type="button" class="muscle-tag-btn cat-tag-btn' + (selectedCats.includes(c) ? ' selected' : '') + '" ' +
+    'onclick="window.toggleLibraryBtn(this)">' + c + '</button>'
+  ).join('');
+
+  const muscleBtns = allMuscles.map(m =>
+    '<button type="button" class="muscle-tag-btn muscle-select-btn' + (selectedTags.includes(m) ? ' selected' : '') + '" ' +
+    'onclick="window.toggleLibraryBtn(this)">' + m + '</button>'
+  ).join('');
 
   document.getElementById('ex-edit-form').innerHTML =
-    (isAdmin ? '<div class="form-group"><label>Exercise Name</label><input type="text" id="ex-edit-name" value="' + (ex?.name||'') + '" placeholder="e.g. Bench Press" /></div>' : '') +
-    (isAdmin ? '<div class="form-group"><label>Video URL</label><input type="text" id="ex-edit-video" value="' + (ex?.videoUrl||'') + '" placeholder="YouTube or Google Drive link" /></div>' : '') +
-    (isAdmin ? '<div class="form-group"><label>Category</label>' +
-      '<select id="ex-edit-cat" onchange="window.onLibraryCatChange(this.value)">' +
-      LIBRARY_CATEGORIES.filter(c => c !== 'All').map(c =>
-        '<option value="' + c + '"' + (ex?.category === c ? ' selected' : '') + '>' + c + '</option>'
-      ).join('') +
-      '</select></div>' : '') +
-    '<div id="muscle-tag-section">' + muscleHTML + '</div>' +
+    (isAdmin ? '<div class="form-group"><label>Exercise Name</label><input type="text" id="ex-edit-name" value="' + (ex?.name||'').replace(/"/g,'&quot;') + '" placeholder="e.g. Bench Press" /></div>' : '') +
+    (isAdmin ? '<div class="form-group"><label>Video URL</label><input type="text" id="ex-edit-video" value="' + (ex?.videoUrl||'').replace(/"/g,'&quot;') + '" placeholder="YouTube or Google Drive link" /></div>' : '') +
+    '<div class="form-group"><label>Body Areas <span style="font-size:11px;color:var(--muted);font-weight:400;">(select all that apply)</span></label>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;" id="cat-btn-group">' + catBtns + '</div>' +
+    '</div>' +
+    '<div class="form-group"><label>Muscle Groups <span style="font-size:11px;color:var(--muted);font-weight:400;">(select all that apply)</span></label>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;" id="muscle-btn-group">' + muscleBtns + '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;">' +
+        '<input type="text" id="muscle-custom-input" placeholder="Add custom muscle group..." style="flex:1;font-size:12px;" ' +
+          'onkeydown="if(event.keyCode===13){event.preventDefault();window.addCustomMuscle();}" />' +
+        '<button class="ex-set-btn" onclick="window.addCustomMuscle()">＋ Add</button>' +
+      '</div>' +
+    '</div>' +
     '<div class="form-group"><label>Description / Coaching Cues</label>' +
       '<textarea id="ex-edit-desc" style="min-height:100px;" placeholder="Form cues, common mistakes, variations...">' + (ex?.description||'') + '</textarea>' +
     '</div>' +
@@ -3595,33 +3601,46 @@ function renderExerciseEditForm(ex) {
     '</div>';
 }
 
-window.onLibraryCatChange = function(cat) {
-  const muscles = LIBRARY_MUSCLES[cat] || [];
-  const section = document.getElementById('muscle-tag-section');
-  if (!muscles.length) { section.innerHTML = ''; return; }
-  section.innerHTML = '<div class="form-group"><label>Muscle Groups</label>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">' +
-    muscles.map(m => '<button type="button" class="muscle-tag-btn" onclick="toggleMuscleTag(this,\'' + m + '\')">' + m + '</button>').join('') +
-    '</div></div>';
+window.addCustomMuscle = function() {
+  const input = document.getElementById('muscle-custom-input');
+  const val = input?.value.trim();
+  if (!val) return;
+  const group = document.getElementById('muscle-btn-group');
+  if (!group) return;
+  const existing = [...group.querySelectorAll('.muscle-select-btn')].find(b => b.textContent.toLowerCase() === val.toLowerCase());
+  if (existing) { existing.classList.add('selected'); input.value = ''; return; }
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'muscle-tag-btn muscle-select-btn selected';
+  btn.textContent = val;
+  btn.onclick = function() { this.classList.toggle('selected'); };
+  group.appendChild(btn);
+  input.value = '';
 };
 
-window.toggleMuscleTag = function(btn, tag) {
-  btn.classList.toggle('selected');
-};
+window.toggleLibraryBtn = function(btn) { btn.classList.toggle('selected'); };
+window.onLibraryCatChange = function(cat) {};
+window.toggleMuscleTag = function(btn) { btn.classList.toggle('selected'); };
+
+
 
 window.saveExercise = async function(exId) {
   const isAdmin = currentUserRole === 'admin';
   const desc = document.getElementById('ex-edit-desc')?.value.trim() || '';
-  const muscleTags = [...document.querySelectorAll('.muscle-tag-btn.selected')].map(b => b.textContent);
+  const muscleTags = [...document.querySelectorAll('.muscle-select-btn.selected')].map(b => b.textContent.trim());
+  const categories = [...document.querySelectorAll('.cat-tag-btn.selected')].map(b => b.textContent.trim());
 
-  let data = { description: desc, muscleTags, updatedAt: new Date().toISOString() };
+  let data = {
+    description: desc, muscleTags, categories,
+    category: categories[0] || '',
+    updatedAt: new Date().toISOString()
+  };
 
   if (isAdmin) {
     const name = document.getElementById('ex-edit-name')?.value.trim();
     const videoUrl = document.getElementById('ex-edit-video')?.value.trim() || '';
-    const category = document.getElementById('ex-edit-cat')?.value || '';
     if (!name) return showToast('⚠️ Exercise name required');
-    data = { ...data, name, videoUrl, category };
+    data = { ...data, name, videoUrl };
   }
 
   try {
