@@ -3699,7 +3699,7 @@ window.toggleHistDetail = function(el) { el.nextElementSibling.classList.toggle(
 window.saveClientWorkout = async function() {
   const btn = document.getElementById('cv-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-  const date = new Date().toISOString().split('T')[0];
+  const date = todayStr();
   const sessionNotes = document.getElementById('cv-session-notes')?.value.trim() || '';
   const plan = clientViewPlan;
   const toSave = [];
@@ -3872,29 +3872,33 @@ function renderCvHome() {
 
     // Navigation tiles
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
-      // My Workout
-      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="workout" style="background:var(--accent);border-radius:14px;padding:20px;cursor:pointer;transition:opacity 0.15s;" >' +
-        '<div style="font-size:28px;margin-bottom:6px;">🏋</div>' +
-        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:#0d0f14;">My Workout</div>' +
-        '<div style="font-size:11px;color:rgba(13,15,20,0.6);margin-top:3px;">' + (clientViewPlan ? (clientViewPlan.focus || 'Current plan') : 'No plan yet') + '</div>' +
+      // My Workout - accent tile
+      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="workout" ' +
+        'style="background:var(--accent);border-radius:14px;padding:24px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:130px;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">🏋</div>' +
+        '<div style="font-size:14px;font-weight:900;font-family:var(--font-head);color:#0d0f14;letter-spacing:1px;">MY WORKOUT</div>' +
+        '<div style="font-size:11px;color:rgba(13,15,20,0.55);margin-top:4px;">' + (clientViewPlan ? (clientViewPlan.focus || 'Current plan') : 'No plan yet') + '</div>' +
       '</div>' +
       // History
-      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="history" style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:border-color 0.15s;" >' +
-        '<div style="font-size:28px;margin-bottom:6px;">📋</div>' +
-        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:var(--text);">History</div>' +
-        '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + totalSessions + ' sessions logged</div>' +
+      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="history" ' +
+        'style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:24px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:130px;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">📋</div>' +
+        '<div style="font-size:14px;font-weight:900;font-family:var(--font-head);color:var(--text);letter-spacing:1px;">HISTORY</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + totalSessions + ' sessions logged</div>' +
       '</div>' +
       // PRs
-      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="prs" style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:border-color 0.15s;" >' +
-        '<div style="font-size:28px;margin-bottom:6px;">🏆</div>' +
-        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:var(--text);">My PRs</div>' +
-        '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + prCount + ' exercises tracked</div>' +
+      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="prs" ' +
+        'style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:24px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:130px;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">🏆</div>' +
+        '<div style="font-size:14px;font-weight:900;font-family:var(--font-head);color:var(--text);letter-spacing:1px;">MY PRS</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + prCount + ' exercises tracked</div>' +
       '</div>' +
       // Exercise Library
-      '<div onclick="window.showLibrary()" style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:border-color 0.15s;" >' +
-        '<div style="font-size:28px;margin-bottom:6px;">📚</div>' +
-        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:var(--text);">Exercise Library</div>' +
-        '<div style="font-size:11px;color:var(--muted);margin-top:3px;">Watch demo videos</div>' +
+      '<div onclick="window.showLibrary()" ' +
+        'style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:24px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:130px;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">📚</div>' +
+        '<div style="font-size:14px;font-weight:900;font-family:var(--font-head);color:var(--text);letter-spacing:1px;">EXERCISE LIBRARY</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Watch demo videos</div>' +
       '</div>' +
     '</div>';
 }
