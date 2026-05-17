@@ -3326,8 +3326,7 @@ window.previewAsClient = async function() {
       document.body.appendChild(banner);
     }
 
-    renderCvWorkout();
-    window.showCvTab('workout');
+    window.showCvTab('home');
     showToast('👁 Previewing as ' + client.name);
   } catch(e) {
     document.getElementById('loading-screen').style.display = 'none';
@@ -3553,34 +3552,46 @@ async function initClientView() {
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('client-view').style.display = 'block';
 
-    // Load current plan
-    await loadClientPlan();
-    renderCvWorkout();
+    // Load all plans for plan selector
+    await loadAllClientPlans();
+    // Start on home screen
+    window.showCvTab('home');
   } catch(e) {
     console.error('initClientView:', e);
     setLoading(100, 'Error loading your data: ' + e.message);
   }
 }
 
-async function loadClientPlan() {
-  // Load most recent plan for this client across all focuses
+let clientViewAllPlans = []; // all saved plans for this client
+
+async function loadAllClientPlans() {
   try {
     const snap = await getDocs(collection(db, 'plans'));
-    const plans = snap.docs
+    clientViewAllPlans = snap.docs
       .filter(d => d.id.startsWith(clientViewData.id + '__'))
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
-    clientViewPlan = plans[0] || null;
+    clientViewPlan = clientViewAllPlans[0] || null;
   } catch(e) {
+    clientViewAllPlans = [];
     clientViewPlan = null;
   }
 }
 
+// Keep for backward compat
+async function loadClientPlan() {
+  await loadAllClientPlans();
+}
+
 window.showCvTab = function(tab) {
-  ['workout','history','progress','prs'].forEach(t => {
-    document.getElementById('cv-panel-' + t).style.display = t === tab ? 'block' : 'none';
-    document.getElementById('cv-tab-' + t).classList.toggle('active', t === tab);
+  ['home','workout','history','progress','prs'].forEach(t => {
+    const panel = document.getElementById('cv-panel-' + t);
+    const btn = document.getElementById('cv-tab-' + t);
+    if (panel) panel.style.display = t === tab ? 'block' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
   });
+  if (tab === 'home') renderCvHome();
+  if (tab === 'workout') renderCvWorkout();
   if (tab === 'history') renderCvHistory();
   if (tab === 'progress') renderCvProgress();
   if (tab === 'prs') renderCvPRs();
@@ -3602,8 +3613,24 @@ document.addEventListener('click', function(e) {
 // ── MY WORKOUT TAB ──
 function renderCvWorkout() {
   const panel = document.getElementById('cv-panel-workout');
+
+  // Plan selector (shown if multiple plans)
+  let selectorHTML = '';
+  if (clientViewAllPlans.length > 1) {
+    selectorHTML = '<div style="margin-bottom:16px;">' +
+      '<label style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">Select Workout Plan</label>' +
+      '<select onchange="window.selectClientPlan(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;">' +
+        clientViewAllPlans.map((p, i) => {
+          const label = p.focus || ('Plan ' + (i+1));
+          const exCount = p.exercises ? p.exercises.length + ' exercises' : '';
+          return '<option value="' + i + '"' + (clientViewPlan && p.id === clientViewPlan.id ? ' selected' : '') + '>' + label + (exCount ? ' · ' + exCount : '') + '</option>';
+        }).join('') +
+      '</select>' +
+    '</div>';
+  }
+
   if (!clientViewPlan || !clientViewPlan.exercises || !clientViewPlan.exercises.length) {
-    panel.innerHTML = '<div style="text-align:center;padding:48px 16px;color:var(--muted);">' +
+    panel.innerHTML = selectorHTML + '<div style="text-align:center;padding:48px 16px;color:var(--muted);">' +
       '<div style="font-size:48px;margin-bottom:12px;">🏋</div>' +
       '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">No workout assigned yet</div>' +
       '<div style="font-size:13px;">Your PT will load your next workout here.</div>' +
@@ -3613,7 +3640,7 @@ function renderCvWorkout() {
 
   const plan = clientViewPlan;
   const focusLabel = plan.focus || '';
-  let html = (focusLabel ? '<div class="cv-focus-label">' + focusLabel + ' Plan</div>' : '');
+  let html = selectorHTML + (focusLabel ? '<div class="cv-focus-label">' + focusLabel + ' Plan</div>' : '');
 
   plan.exercises.forEach((ex, ei) => {
     const libEx = clientViewLibrary.find(l => l.name.toLowerCase() === ex.exercise?.toLowerCase());
@@ -3621,15 +3648,17 @@ function renderCvWorkout() {
     const setsData = ex.setsData && ex.setsData.length ? ex.setsData
       : Array.from({length: numSets}, () => ({weight: ex.weight||'', reps: ex.reps||''}));
 
-    let setRows = '<div class="ex-set-headers" style="grid-template-columns:30px 80px 80px 60px 60px 30px;">' +
-      '<span>SET</span><span>TARGET WT</span><span>TARGET REPS</span><span>RPE</span><span>%MAX</span><span></span></div>';
+    let setRows = '<div class="ex-set-headers" style="grid-template-columns:28px 1fr 1fr 1fr 1fr 56px 56px 28px;">' +
+      '<span>SET</span><span>WT (lbs)</span><span>REPS</span><span>RPE</span><span>%MAX</span><span style="text-align:center;font-size:8px;">TARGET WT</span><span style="text-align:center;font-size:8px;">TARGET REPS</span><span></span></div>';
     setRows += setsData.map((s, si) =>
-      '<div class="cv-set-row">' +
+      '<div class="cv-set-row" style="grid-template-columns:28px 1fr 1fr 1fr 1fr 56px 56px 28px;">' +
         '<span class="cv-set-label">S' + (si+1) + '</span>' +
-        '<span class="cv-set-target">' + (s.weight||'—') + ' lbs</span>' +
-        '<span class="cv-set-target">' + (s.reps||'—') + '</span>' +
+        '<input type="text" class="cv-set-input cv-wt-' + ei + '" placeholder="lbs" value="' + (s.weight||'') + '" />' +
+        '<input type="text" class="cv-set-input cv-reps-' + ei + '" placeholder="reps" value="' + (s.reps||'') + '" />' +
         '<input type="text" class="cv-set-input cv-rpe-' + ei + '" placeholder="RPE" />' +
         '<input type="text" class="cv-set-input cv-pct-' + ei + '" placeholder="%" />' +
+        '<span class="cv-set-target" style="font-size:11px;">' + (s.weight||'—') + '</span>' +
+        '<span class="cv-set-target" style="font-size:11px;">' + (s.reps||'—') + '</span>' +
         '<span class="cv-set-check" onclick="window.toggleSetDone(this)">✓</span>' +
       '</div>'
     ).join('');
@@ -3660,6 +3689,11 @@ function renderCvWorkout() {
   panel.innerHTML = html;
 }
 
+window.selectClientPlan = function(idx) {
+  clientViewPlan = clientViewAllPlans[parseInt(idx)] || null;
+  renderCvWorkout();
+};
+
 window.toggleHistDetail = function(el) { el.nextElementSibling.classList.toggle('open'); };
 
 window.saveClientWorkout = async function() {
@@ -3675,13 +3709,15 @@ window.saveClientWorkout = async function() {
     const targetSets = ex.setsData && ex.setsData.length ? ex.setsData
       : Array.from({length: numSets}, () => ({weight: ex.weight||'', reps: ex.reps||''}));
 
+    const wtInputs = document.querySelectorAll('.cv-wt-' + ei);
+    const repsInputs = document.querySelectorAll('.cv-reps-' + ei);
     const rpeInputs = document.querySelectorAll('.cv-rpe-' + ei);
     const pctInputs = document.querySelectorAll('.cv-pct-' + ei);
     const exNote = document.querySelector('.cv-ex-note-' + ei)?.value.trim() || '';
 
     const setsData = targetSets.map((s, si) => ({
-      weight: s.weight || '',
-      reps: s.reps || '',
+      weight: wtInputs[si]?.value.trim() || s.weight || '',
+      reps: repsInputs[si]?.value.trim() || s.reps || '',
       rpe: rpeInputs[si]?.value.trim() || '',
       pct: pctInputs[si]?.value.trim() || ''
     }));
@@ -3791,27 +3827,139 @@ function renderCvHistory() {
     }).join('');
 }
 
+// ── HOME TAB ──
+function renderCvHome() {
+  const panel = document.getElementById('cv-panel-home');
+  const name = clientViewData?.name || '';
+  const firstName = name.split(' ')[0];
+
+  // Stats
+  const totalSessions = [...new Set(clientViewSessions.map(s => s.date).filter(Boolean))].length;
+  const lastSession = clientViewSessions.length ? clientViewSessions.reduce((a,b) => (a.date||'') > (b.date||'') ? a : b) : null;
+  const lastDate = lastSession ? fmtDate(lastSession.date) : 'No sessions yet';
+  const planCount = clientViewAllPlans.length;
+  const planLabel = planCount === 1 ? '1 plan saved' : planCount + ' plans saved';
+
+  // PRs count (unique exercises with heaviest weight)
+  const prSet = new Set(clientViewSessions.filter(s => s.exercise && s.exercise !== 'Session Summary').map(s => s.exercise));
+  const prCount = prSet.size;
+
+  panel.innerHTML =
+    // Greeting
+    '<div style="margin-bottom:28px;">' +
+      '<div style="font-size:24px;font-weight:900;font-family:var(--font-head);color:var(--text);">Hey, ' + firstName + '! 👋</div>' +
+      '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Welcome to your OW PT dashboard.</div>' +
+    '</div>' +
+
+    // Stats row
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px;">' +
+      '<div style="background:var(--surface2);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border);">' +
+        '<div style="font-size:24px;font-weight:900;color:var(--accent);">' + totalSessions + '</div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:3px;">Sessions</div>' +
+      '</div>' +
+      '<div style="background:var(--surface2);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border);">' +
+        '<div style="font-size:24px;font-weight:900;color:var(--accent);">' + prCount + '</div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:3px;">Exercises</div>' +
+      '</div>' +
+      '<div style="background:var(--surface2);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border);">' +
+        '<div style="font-size:24px;font-weight:900;color:var(--accent);">' + planCount + '</div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:3px;">Plans</div>' +
+      '</div>' +
+    '</div>' +
+
+    // Last session note
+    (lastSession ? '<div style="font-size:12px;color:var(--muted);margin-bottom:24px;">Last session: ' + lastDate + '</div>' : '') +
+
+    // Navigation tiles
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+      // My Workout
+      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="workout" style="background:var(--accent);border-radius:14px;padding:20px;cursor:pointer;transition:opacity 0.15s;" >' +
+        '<div style="font-size:28px;margin-bottom:6px;">🏋</div>' +
+        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:#0d0f14;">My Workout</div>' +
+        '<div style="font-size:11px;color:rgba(13,15,20,0.6);margin-top:3px;">' + (clientViewPlan ? (clientViewPlan.focus || 'Current plan') : 'No plan yet') + '</div>' +
+      '</div>' +
+      // History
+      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="history" style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:border-color 0.15s;" >' +
+        '<div style="font-size:28px;margin-bottom:6px;">📋</div>' +
+        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:var(--text);">History</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + totalSessions + ' sessions logged</div>' +
+      '</div>' +
+      // PRs
+      '<div onclick="window.showCvTab(this.dataset.tab)" data-tab="prs" style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:border-color 0.15s;" >' +
+        '<div style="font-size:28px;margin-bottom:6px;">🏆</div>' +
+        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:var(--text);">My PRs</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + prCount + ' exercises tracked</div>' +
+      '</div>' +
+      // Exercise Library
+      '<div onclick="window.showLibrary()" style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:border-color 0.15s;" >' +
+        '<div style="font-size:28px;margin-bottom:6px;">📚</div>' +
+        '<div style="font-size:15px;font-weight:900;font-family:var(--font-head);color:var(--text);">Exercise Library</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:3px;">Watch demo videos</div>' +
+      '</div>' +
+    '</div>';
+}
+
 // ── PROGRESS TAB ──
 function renderCvProgress() {
   document.getElementById('cv-panel-progress').innerHTML =
     '<div style="text-align:center;padding:40px;color:var(--muted);">Progress charts coming soon.</div>';
 }
 
-// ── PRs TAB ──
+// ── PRs TAB — auto-detect heaviest weight per exercise ──
 function renderCvPRs() {
   const panel = document.getElementById('cv-panel-prs');
-  const prSessions = clientViewSessions.filter(s => s.pr);
-  if (!prSessions.length) {
-    panel.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">No PRs logged yet. Keep pushing! 🏆</div>';
+
+  // Build PRs: for each exercise, find the heaviest weight ever logged
+  const prMap = {}; // exercise → { weight, date, reps }
+
+  clientViewSessions.forEach(s => {
+    if (!s.exercise || s.exercise === 'Session Summary') return;
+    let heaviest = 0, heaviestReps = '', heaviestDate = s.date || '';
+
+    if (s.setsData && s.setsData.length) {
+      s.setsData.forEach(set => {
+        const w = parseFloat(set.weight);
+        if (!isNaN(w) && w > heaviest) {
+          heaviest = w;
+          heaviestReps = set.reps || '';
+          heaviestDate = s.date || '';
+        }
+      });
+    } else {
+      heaviest = parseFloat(s.weight) || 0;
+      heaviestReps = s.reps || '';
+      heaviestDate = s.date || '';
+    }
+
+    if (heaviest > 0) {
+      if (!prMap[s.exercise] || heaviest > prMap[s.exercise].weight) {
+        prMap[s.exercise] = { weight: heaviest, reps: heaviestReps, date: heaviestDate };
+      }
+    }
+  });
+
+  const prs = Object.entries(prMap).sort((a,b) => b[1].weight - a[1].weight);
+
+  if (!prs.length) {
+    panel.innerHTML = '<div style="text-align:center;padding:48px 16px;color:var(--muted);">' +
+      '<div style="font-size:48px;margin-bottom:12px;">🏆</div>' +
+      '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">No PRs yet</div>' +
+      '<div style="font-size:13px;">Log your first workout to start tracking personal records!</div>' +
+    '</div>';
     return;
   }
-  panel.innerHTML = '<div class="section-head" style="margin-bottom:16px;">YOUR PRS 🏆</div>' +
-    prSessions.sort((a,b) => (b.date||'').localeCompare(a.date||'')).map(s =>
-      '<div class="cv-workout-card">' +
-        '<div style="font-weight:700;font-size:14px;">' + s.exercise + ' 🏆</div>' +
-        '<div style="font-size:12px;color:var(--muted);margin-top:4px;">' + fmtDate(s.date) + ' · ' + (s.weight ? s.weight + ' lbs' : '') + '</div>' +
+
+  panel.innerHTML = '<div class="section-head" style="margin-bottom:16px;">YOUR PRs 🏆</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">' +
+    prs.map(([ex, pr]) =>
+      '<div class="cv-workout-card" style="text-align:center;padding:16px 12px;">' +
+        '<div style="font-size:28px;font-weight:900;color:var(--accent);">' + pr.weight + '<span style="font-size:14px;color:var(--muted);"> lbs</span></div>' +
+        (pr.reps ? '<div style="font-size:12px;color:var(--muted);margin-top:2px;">× ' + pr.reps + ' reps</div>' : '') +
+        '<div style="font-size:12px;font-weight:700;color:var(--text);margin-top:8px;">' + ex + '</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + (pr.date ? fmtDate(pr.date) : '') + '</div>' +
       '</div>'
-    ).join('');
+    ).join('') +
+    '</div>';
 }
 
 // ── EXERCISE LIBRARY ──
@@ -5167,15 +5315,17 @@ onAuthStateChanged(auth, async (user) => {
 
     <!-- Client Nav Tabs -->
     <div style="display:flex;border-bottom:1px solid var(--border);background:var(--surface2);overflow-x:auto;">
-      <button class="cv-tab active" id="cv-tab-workout" onclick="window.showCvTab('workout')">🏋 My Workout</button>
-      <button class="cv-tab" id="cv-tab-history" onclick="window.showCvTab('history')">📋 History</button>
+      <button class="cv-tab active" id="cv-tab-home" onclick="window.showCvTab('home')">🏠 Home</button>
+      <button class="cv-tab" id="cv-tab-workout" onclick="window.showCvTab(this.dataset.tab)" data-tab="workout">🏋 My Workout</button>
+      <button class="cv-tab" id="cv-tab-history" onclick="window.showCvTab(this.dataset.tab)" data-tab="history">📋 History</button>
       <button class="cv-tab" id="cv-tab-progress" onclick="window.showCvTab('progress')">📈 Progress</button>
-      <button class="cv-tab" id="cv-tab-prs" onclick="window.showCvTab('prs')">🏆 PRs</button>
+      <button class="cv-tab" id="cv-tab-prs" onclick="window.showCvTab(this.dataset.tab)" data-tab="prs">🏆 PRs</button>
     </div>
 
     <!-- Tab Panels -->
     <div style="max-width:780px;margin:0 auto;padding:24px 16px;">
-      <div id="cv-panel-workout"></div>
+      <div id="cv-panel-home"></div>
+      <div id="cv-panel-workout" style="display:none;"></div>
       <div id="cv-panel-history" style="display:none;"></div>
       <div id="cv-panel-progress" style="display:none;"></div>
       <div id="cv-panel-prs" style="display:none;"></div>
