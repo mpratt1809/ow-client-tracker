@@ -1481,7 +1481,10 @@ window.goBack = function() {
 window.showTab = function(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  // Reset scroll on all possible containers
   window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
   document.getElementById('app')?.scrollTo(0, 0);
   if (name === 'overview') renderOverview();
   if (name === 'log') refreshPlanBanner();
@@ -2588,7 +2591,11 @@ async function renderPlan() {
   }
 
   content.innerHTML = html;
-  window.scrollTo(0, 0);
+  requestAnimationFrame(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  });
 }
 
 function getPlanData() {
