@@ -2759,13 +2759,16 @@ function applyPlanToLog(plan) {
       const numSets = parseInt(ex.sets) || 3;
       prefill = Array.from({length: numSets}, () => ({w: ex.weight||'', r: ex.reps||'', rpe:'', pct:''}));
     }
+    const idBefore = exRowCount; // capture BEFORE addExRow increments
     window.addExRow(prefill);
-    const id = exRowCount;
-    const nameEl = document.getElementById('ex-name-' + id);
-    if (nameEl) nameEl.value = ex.exercise;
-    // Pre-fill note too
-    const noteEl = document.getElementById('ex-note-' + id);
-    if (noteEl && ex.notes) noteEl.value = ex.notes;
+    const id = exRowCount; // after addExRow, this equals idBefore + 1
+    // Set exercise name immediately after the row is added to DOM
+    setTimeout(() => {
+      const nameEl = document.getElementById('ex-name-' + id);
+      if (nameEl) { nameEl.value = ex.exercise; }
+      const noteEl = document.getElementById('ex-note-' + id);
+      if (noteEl && ex.notes) noteEl.value = ex.notes;
+    }, 0);
   });
   // Set session notes
   const notesEl = document.getElementById('log-session-notes');
