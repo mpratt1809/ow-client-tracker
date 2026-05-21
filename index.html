@@ -1012,13 +1012,7 @@
     <div class="modal-actions">
       <button class="btn-modal-cancel" onclick="closeModal()">Cancel</button>
       <button class="btn-modal-save" onclick="saveGoals()">SAVE</button>
-    </div>
-  </div>
-</div>
-
-  <div id="tab-plan" class="tab-panel">
-    <div class="section-head">NEXT SESSION PLAN</div>
-    <div class="section-sub" id="plan-sub">Plan upcoming exercises with auto-suggestions</div>
+     <div id="tab-plan" class="tab-panel">
     <div id="plan-content"></div>
   </div>
 
@@ -1028,6 +1022,9 @@
     <div id="manage-content"></div>
   </div>
 
+ </div>
+  </div>
+</div>
 
 <footer class="mp-footer" id="app-footer">
   <div class="mp-rule-line">
@@ -2499,9 +2496,12 @@ function buildPlanSuggestions(focusFilter) {
 
 async function renderPlan() {
   if (!currentClient) return;
-  document.getElementById('plan-sub').textContent = currentClient.name + ' · Next Session';
   const content = document.getElementById('plan-content');
-  content.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Loading plan…</div>';
+  // Render heading + spinner immediately so content is at top before async loads
+  content.innerHTML =
+    '<div class="section-head">NEXT SESSION PLAN</div>' +
+    '<div class="section-sub" id="plan-sub">' + currentClient.name + ' · Next Session</div>' +
+    '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Loading plan…</div>';
 
   // Load plan for the current focus (or most recent if none saved for this focus)
   const suggestions = buildPlanSuggestions();
