@@ -1429,6 +1429,10 @@ window.toggleShowArchived = function() {
 
 // ── OPEN CLIENT ──
 async function openClient(client) {
+  // Clear any state from previous client
+  window._allPendingPlans = [];
+  window._pendingPlan = null;
+  window._loadedPlanId = null;
   currentClient = client;
   const cs = document.getElementById('client-select');
   cs.classList.remove('visible');
@@ -1468,6 +1472,13 @@ window.goBack = function() {
   currentClient = null; clientSessions = [];
   groupAttendees = []; // clear any lingering group state
   groupExCount = 0;
+  window._allPendingPlans = [];
+  window._pendingPlan = null;
+  window._loadedPlanId = null;
+  clientViewData = null;
+  clientViewSessions = [];
+  clientViewPlan = null;
+  clientViewAllPlans = [];
   if (progressChart) { progressChart.destroy(); progressChart = null; }
   if (weeklyChart) { weeklyChart.destroy(); weeklyChart = null; }
   Object.values(sparklineCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
@@ -2052,6 +2063,15 @@ window.saveSession = async function() {
     toSave.forEach(s => batch.set(doc(collection(db,'sessions')), s));
     await batch.commit();
     toSave.forEach(s => { if (s.exercise && !MASTER_EXERCISES.includes(s.exercise)) { MASTER_EXERCISES.push(s.exercise); MASTER_EXERCISES.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase())); } });
+    // Delete the plan that was loaded into this session (one-time use)
+    if (window._loadedPlanId) {
+      try {
+        await deleteDoc(doc(db, 'plans', window._loadedPlanId));
+        window._loadedPlanId = null;
+        window._allPendingPlans = [];
+        window._pendingPlan = null;
+      } catch(e) { console.warn('Could not delete plan after save:', e); }
+    }
     clientSessions = await loadClientSessions(currentClient.name, true);
     updateHeaderPill();
     const c = allClients.find(x => x.name === currentClient.name);
@@ -2747,6 +2767,7 @@ window.loadSelectedPlan = function() {
   if (!sel || sel.value === '' || !window._allPendingPlans) return;
   const plan = window._allPendingPlans[parseInt(sel.value)];
   if (!plan) return;
+  window._loadedPlanId = plan.id || null; // track for deletion after save
   applyPlanToLog(plan);
   document.getElementById('plan-load-banner').style.display = 'none';
   showToast('✅ Plan loaded!');
@@ -2774,12 +2795,27 @@ function applyPlanToLog(plan) {
     const idBefore = exRowCount; // capture BEFORE addExRow increments
     window.addExRow(prefill);
     const id = exRowCount; // after addExRow, this equals idBefore + 1
-    // Set exercise name immediately after the row is added to DOM
+    // Set exercise name and show last session reference
     setTimeout(() => {
       const nameEl = document.getElementById('ex-name-' + id);
       if (nameEl) { nameEl.value = ex.exercise; }
       const noteEl = document.getElementById('ex-note-' + id);
       if (noteEl && ex.notes) noteEl.value = ex.notes;
+      // Show last session data as reference line (like Plan tab)
+      const panel = document.getElementById('ex-detail-' + id);
+      const histList = document.getElementById('ex-history-' + id);
+      if (panel && histList && (ex.lastWeight || ex.lastSets || ex.lastReps)) {
+        const lastStr = [
+          ex.lastSets ? ex.lastSets + ' ×' : null,
+          ex.lastReps ? ex.lastReps + ' reps' : null,
+          ex.lastWeight ? '@ ' + ex.lastWeight + ' lbs' : null
+        ].filter(Boolean).join(' ');
+        histList.innerHTML = '<div class="plan-last-val" style="font-size:11px;color:var(--muted);padding:4px 0;">Last: ' + lastStr + '</div>';
+        panel.style.display = 'block';
+      } else if (panel && histList) {
+        // Fall back to full history lookup
+        window.showExHistory(id);
+      }
     }, 0);
   });
   // Set session notes
@@ -2790,8 +2826,10 @@ function applyPlanToLog(plan) {
 window.loadPlanIntoLog = function() {
   const plan = getPlanData();
   if (!plan.exercises.length) return showToast('No exercises in plan');
+  // Track which plan doc was loaded so we can delete it after saving
+  const savedPlanId = plan.id || null;
+  window._loadedPlanId = savedPlanId;
   window.showTab('log');
-  // Small delay to let the tab render before filling
   setTimeout(() => {
     applyPlanToLog(plan);
     showToast('✅ Plan loaded into Log Session!');
