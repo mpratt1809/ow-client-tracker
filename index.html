@@ -2501,14 +2501,14 @@ function buildPlanSuggestions(focusFilter) {
     return {
       exercise: exName,
       sets: last?.sets || '',
-      reps: last?.reps || '',
+      reps: last?.setsData?.length ? (last.setsData[0]?.reps || '') : (last?.reps?.split('/')?.[0] || last?.reps || ''),
       weight: suggestedWeight,
       notes: '',
       suggestion: suggestionText,
       suggestionType,
       lastWeight: last?.weight || '',
       lastSets: last?.sets || '',
-      lastReps: last?.reps || '',
+      lastReps: last?.setsData?.length ? (last.setsData[0]?.reps || '') : (last?.reps?.split('/')?.[0] || last?.reps || ''),
     };
   });
 
@@ -2893,7 +2893,7 @@ window.addPlanExercise = function() {
     '</div>' +
     '<div class="plan-srw-row">' +
       '<div class="plan-field-wrap"><span class="plan-field-label">Sets</span><input type="text" class="plan-input" id="plan-sets-'+i+'" value="'+(last?.sets||'')+'" placeholder="—" /></div>' +
-      '<div class="plan-field-wrap"><span class="plan-field-label">Reps</span><input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+(last?.reps||'')+'" placeholder="—" /></div>' +
+      '<div class="plan-field-wrap"><span class="plan-field-label">Reps</span><input type="text" class="plan-input" id="plan-reps-'+i+'" value="'+(last?.setsData?.length ? (last.setsData[0]?.reps||'') : (last?.reps?.split('/')[0]||last?.reps||''))+'" placeholder="—" /></div>' +
       '<div class="plan-field-wrap"><span class="plan-field-label">Weight</span><input type="text" class="plan-input" id="plan-wt-'+i+'" value="'+(last?.weight||'')+'" placeholder="—" /></div>' +
     '</div>' +
     '<div class="plan-notes-wrap"><span class="plan-field-label">Notes</span><input type="text" class="plan-input plan-notes-input" id="plan-notes-'+i+'" value="" placeholder="Cues, reminders…" /></div>' +
