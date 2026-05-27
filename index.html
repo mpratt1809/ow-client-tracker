@@ -1433,6 +1433,7 @@ async function openClient(client) {
   window._allPendingPlans = [];
   window._pendingPlan = null;
   window._loadedPlanId = null;
+  window._currentRenderedPlanId = null;
   currentClient = client;
   const cs = document.getElementById('client-select');
   cs.classList.remove('visible');
@@ -1475,6 +1476,7 @@ window.goBack = function() {
   window._allPendingPlans = [];
   window._pendingPlan = null;
   window._loadedPlanId = null;
+  window._currentRenderedPlanId = null;
   clientViewData = null;
   clientViewSessions = [];
   clientViewPlan = null;
@@ -2530,6 +2532,8 @@ async function renderPlan() {
 
   // Use saved plan if exists, otherwise use suggestions
   const plan = savedPlan || { focus: suggestions.focus, exercises: suggestions.exercises, notes: '' };
+  // Store the current plan's Firestore ID so loadPlanIntoLog can delete it
+  window._currentRenderedPlanId = savedPlan?.id || planDocId(currentClient.id, plan.focus) || null;
 
   // If no exercises at all
   if (!plan.exercises || !plan.exercises.length) {
@@ -2657,6 +2661,7 @@ window.onPlanFocusChange = async function(newFocus) {
     const focusDates = [...new Set(clientSessions.filter(s=>s.focus===newFocus&&s.date).map(s=>s.date))].sort();
     const lastDate = focusDates[focusDates.length-1];
     if (label) label.textContent = lastDate ? 'Saved plan · Last '+newFocus+' session: '+fmtDate(lastDate) : 'Saved plan for '+newFocus;
+    window._currentRenderedPlanId = saved.id || planDocId(currentClient.id, newFocus) || null;
     renderPlanRows(saved.exercises);
     return;
   }
@@ -2827,8 +2832,7 @@ window.loadPlanIntoLog = function() {
   const plan = getPlanData();
   if (!plan.exercises.length) return showToast('No exercises in plan');
   // Track which plan doc was loaded so we can delete it after saving
-  const savedPlanId = plan.id || null;
-  window._loadedPlanId = savedPlanId;
+  window._loadedPlanId = window._currentRenderedPlanId || null;
   window.showTab('log');
   setTimeout(() => {
     applyPlanToLog(plan);
@@ -3806,6 +3810,14 @@ window.saveClientWorkout = async function() {
     const batch = writeBatch(db);
     toSave.forEach(d => batch.set(doc(collection(db, 'sessions')), d));
     await batch.commit();
+    // Delete the plan after use — plans are one-time use
+    if (clientViewPlan && clientViewPlan.id) {
+      try {
+        await deleteDoc(doc(db, 'plans', clientViewPlan.id));
+        clientViewAllPlans = clientViewAllPlans.filter(p => p.id !== clientViewPlan.id);
+        clientViewPlan = clientViewAllPlans[0] || null;
+      } catch(e) { console.warn('Could not delete plan after save:', e); }
+    }
     clientViewSessions = await loadClientSessions(clientViewData.name, true);
     showToast('✅ Workout saved!');
     window.showCvTab('history');
