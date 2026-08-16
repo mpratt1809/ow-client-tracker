@@ -1145,26 +1145,45 @@ function setLoading(pct, msg) {
 }
 
 function getAllExercises() {
-  const fromSessions = new Set((window._allSessionExercises || []).map(e => e.trim()).filter(Boolean));
-  const combined = new Set([...MASTER_EXERCISES, ...fromSessions]);
+  // Normalise for fuzzy dedup
+  function norm(s) { return s.toLowerCase().replace(/[^a-z0-9]/g, ''); }
+  const canonicalNorms = new Set(MASTER_EXERCISES.map(norm));
+
+  // From session history: only include names that are NOT junk and NOT
+  // already covered (exact or fuzzy) by the canonical list
+  const extraFromSessions = (window._allSessionExercises || [])
+    .map(e => e.trim())
+    .filter(e => e && !e.includes(':') && e.length <= 60)  // skip WU:... and long combos
+    .filter(e => !canonicalNorms.has(norm(e)));            // skip canonical dupes/variants
+
+  const combined = new Set([...MASTER_EXERCISES, ...extraFromSessions]);
   return [...combined].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 }
 async function prefetchAllExercises() {
   try {
     const snap = await getDocs(collection(db, 'sessions'));
     window._allSessionExercises = snap.docs.map(d => d.data().exercise || '').filter(Boolean);
-    // Only add session exercises that fuzzy-match a canonical name
-    // Do NOT add non-canonical variants — they break the consistency enforcement
-    const canonicalLower = new Set(MASTER_EXERCISES.map(e => e.toLowerCase()));
+
+    // Normalise a string to bare alpha-numeric for fuzzy comparison
+    function norm(s) {
+      return s.toLowerCase()
+        .replace(/[^a-z0-9]/g, ''); // strip ALL non-alphanumeric (spaces, slashes, dashes, colons…)
+    }
+
+    const canonicalNorms = new Set(MASTER_EXERCISES.map(norm));
+
     window._allSessionExercises.forEach(e => {
-      if (e && !canonicalLower.has(e.toLowerCase()) && !MASTER_EXERCISES.includes(e)) {
-        // Only add if it has no close match in canonical list (truly new exercise)
-        const hasClose = MASTER_EXERCISES.some(m =>
-          m.toLowerCase().replace(/[^a-z0-9]/g,'') === e.toLowerCase().replace(/[^a-z0-9]/g,'')
-        );
-        if (!hasClose) MASTER_EXERCISES.push(e);
-      }
+      if (!e) return;
+      // Skip obviously junk entries: contain colons (WU: ...), very long, or already canonical
+      if (e.includes(':') || e.length > 60) return;
+      if (canonicalNorms.has(norm(e))) return; // already covered by canonical
+      if (MASTER_EXERCISES.some(m => norm(m) === norm(e))) return; // fuzzy dupe
+      // Truly new — add with "this client" tag only, don't pollute the list permanently
+      // (we add to _allSessionExercises for the "this client" label but NOT to MASTER_EXERCISES)
     });
+
+    // DO NOT push anything into MASTER_EXERCISES from session history
+    // The canonical list is the single source of truth
     MASTER_EXERCISES.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   } catch(e) { console.warn('prefetch failed:', e); }
 }
