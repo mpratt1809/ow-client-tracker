@@ -501,6 +501,22 @@
     .att-pill.att-selected { border-color: var(--accent) !important; background: rgba(232,255,71,0.08) !important; }
     .group-member-section { animation: slideIn 0.2s ease; }
 
+    /* ── CARDIO ── */
+    .cardio-section { background:var(--surface2);border-radius:12px;border:1px solid var(--border);padding:16px;margin-bottom:16px; }
+    .cardio-block { background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:10px;position:relative; }
+    .cardio-ex-name { font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px; }
+    .cardio-fields { display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:8px; }
+    .cardio-field { display:flex;flex-direction:column;gap:4px; }
+    .cardio-field label { font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted); }
+    .cardio-field input, .cardio-field select { background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:13px; }
+    .cardio-field input:focus, .cardio-field select:focus { outline:none;border-color:var(--accent); }
+    .cardio-timing-btn { font-size:11px;padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s; }
+    .cardio-timing-btn.selected { border-color:var(--accent);color:var(--accent);background:rgba(232,255,71,0.08); }
+    .cardio-suggestions { position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;display:none; }
+    .cardio-suggestions.open { display:block; }
+    .cardio-sug-item { padding:8px 12px;cursor:pointer;font-size:13px; }
+    .cardio-sug-item:hover { background:var(--surface); }
+
     /* ── EXERCISE LIBRARY ── */
     .library-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:16px; }
     .library-card { background:var(--surface2);border-radius:12px;border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:border-color 0.15s; }
@@ -2559,6 +2575,15 @@ async function renderPlan() {
   )].sort();
   const initLastFocusDate = initFocusDates[initFocusDates.length - 1];
 
+  // Cardio section
+  html += '<div class="cardio-section">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+      '<div class="card-title" style="margin:0;">🏃 Cardio</div>' +
+      '<button class="btn-add-row" style="margin:0;" onclick="window.addCardioPlanBlock()">＋ Add Cardio</button>' +
+    '</div>' +
+    '<div id="cardio-plan-blocks"></div>' +
+  '</div>';
+
   html += '<div class="card"><div class="card-title">💪 Planned Exercises</div>';
   if (initLastFocusDate) {
     html += '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;" id="plan-focus-label">Based on last ' + plan.focus + ' session: ' + fmtDate(initLastFocusDate) + '</div>';
@@ -2616,6 +2641,10 @@ async function renderPlan() {
   }
 
   content.innerHTML = html;
+  // Restore cardio blocks from saved plan
+  if (plan.cardio && plan.cardio.length) {
+    renderCardioPlanSection(plan.cardio);
+  }
   requestAnimationFrame(() => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
@@ -2663,6 +2692,7 @@ window.onPlanFocusChange = async function(newFocus) {
     if (label) label.textContent = lastDate ? 'Saved plan · Last '+newFocus+' session: '+fmtDate(lastDate) : 'Saved plan for '+newFocus;
     window._currentRenderedPlanId = saved.id || planDocId(currentClient.id, newFocus) || null;
     renderPlanRows(saved.exercises);
+    if (saved.cardio && saved.cardio.length) renderCardioPlanSection(saved.cardio);
     return;
   }
 
@@ -2755,6 +2785,7 @@ async function refreshPlanBanner() {
 
 window.savePlanToFirestore = async function() {
   const plan = getPlanData();
+  plan.cardio = getCardioPlanData(); // attach cardio blocks
   try {
     await savePlan(plan);
     showToast('✅ Plan saved!');
@@ -2826,6 +2857,46 @@ function applyPlanToLog(plan) {
   // Set session notes
   const notesEl = document.getElementById('log-session-notes');
   if (notesEl && plan.notes) notesEl.value = plan.notes;
+
+  // Show cardio banner in log session if plan has cardio
+  if (plan.cardio && plan.cardio.length) {
+    const existing = document.getElementById('log-cardio-summary');
+    if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id = 'log-cardio-summary';
+    banner.style.cssText = 'background:rgba(232,255,71,0.05);border:1px solid rgba(232,255,71,0.2);border-radius:10px;padding:12px 14px;margin-bottom:14px;';
+    banner.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;">🏃 Cardio Plan</div>' +
+      plan.cardio.map(c => {
+        const timing = c.timing || 'before';
+        const fields = Object.entries(c)
+          .filter(([k]) => !['exercise','timing','cardio'].includes(k) && c[k])
+          .map(([k,v]) => {
+            const def = CARDIO_FIELD_LABELS[k];
+            return def ? def.label + ': ' + v + (def.unit ? ' ' + def.unit : '') : null;
+          }).filter(Boolean).join(' · ');
+        return '<div style="margin-bottom:6px;">' +
+          '<span style="font-weight:700;font-size:13px;">' + c.exercise + '</span>' +
+          '<span style="font-size:11px;color:var(--accent);margin-left:8px;background:rgba(232,255,71,0.1);padding:2px 8px;border-radius:4px;">' + timing + '</span>' +
+          (fields ? '<div style="font-size:11px;color:var(--muted);margin-top:3px;">' + fields + '</div>' : '') +
+        '</div>';
+      }).join('') +
+      '<div style="display:flex;gap:6px;margin-top:10px;" id="log-cardio-inputs">' +
+        plan.cardio.map((c, ci) =>
+          '<div style="flex:1;min-width:140px;background:var(--surface2);border-radius:8px;padding:8px;border:1px solid var(--border);">' +
+            '<div style="font-size:12px;font-weight:700;margin-bottom:6px;">' + c.exercise + '</div>' +
+            getCardioMetrics(c.exercise).filter(m => m !== 'notes').map(m => {
+              const def = CARDIO_FIELD_LABELS[m];
+              return def ? '<div style="margin-bottom:4px;"><label style="font-size:10px;color:var(--muted);">' + def.label + '</label>' +
+                '<input type="text" class="log-cardio-val" data-ci="' + ci + '" data-metric="' + m + '" ' +
+                  'placeholder="' + def.placeholder + '" value="' + (c[m]||'') + '" ' +
+                  'style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:12px;color:var(--text);" /></div>' : '';
+            }).join('') +
+          '</div>'
+        ).join('') +
+      '</div>';
+    const exRows = document.getElementById('exercise-rows');
+    if (exRows && exRows.parentNode) exRows.parentNode.insertBefore(banner, exRows);
+  }
 }
 
 window.loadPlanIntoLog = function() {
@@ -2833,6 +2904,7 @@ window.loadPlanIntoLog = function() {
   if (!plan.exercises.length) return showToast('No exercises in plan');
   // Track which plan doc was loaded so we can delete it after saving
   window._loadedPlanId = window._currentRenderedPlanId || null;
+  plan.cardio = getCardioPlanData(); // include cardio
   window.showTab('log');
   setTimeout(() => {
     applyPlanToLog(plan);
@@ -3699,6 +3771,37 @@ function renderCvWorkout() {
   const focusLabel = plan.focus || '';
   let html = selectorHTML + (focusLabel ? '<div class="cv-focus-label">' + focusLabel + ' Plan</div>' : '');
 
+  // Show cardio section if plan has cardio
+  if (plan.cardio && plan.cardio.length) {
+    html += '<div class="cardio-section" style="margin-bottom:16px;">' +
+      '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;">🏃 Cardio</div>' +
+      plan.cardio.map((c, ci) => {
+        const timing = c.timing || 'before';
+        const timingColor = timing === 'before' ? '#4fc3f7' : timing === 'after' ? '#81c784' : '#ffb74d';
+        const metrics = getCardioMetrics(c.exercise);
+        return '<div class="cv-workout-card" style="margin-bottom:10px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
+            '<span style="font-size:15px;font-weight:700;">' + c.exercise + '</span>' +
+            '<span style="font-size:11px;padding:2px 10px;border-radius:10px;background:rgba(255,255,255,0.08);color:' + timingColor + ';">' + timing + ' workout</span>' +
+          '</div>' +
+          '<div class="cardio-fields">' +
+            metrics.filter(m => m !== 'notes').map(m => {
+              const def = CARDIO_FIELD_LABELS[m];
+              if (!def) return '';
+              return '<div class="cardio-field">' +
+                '<label>' + def.label + '</label>' +
+                '<input type="text" class="cv-set-input cv-cardio-' + ci + '-' + m + '" ' +
+                  'data-ci="' + ci + '" data-metric="' + m + '" ' +
+                  'placeholder="' + def.placeholder + '" value="' + (c[m]||'') + '" />' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+          (c.notes ? '<div style="font-size:12px;color:var(--muted);margin-top:8px;">📋 ' + c.notes + '</div>' : '') +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+
   plan.exercises.forEach((ex, ei) => {
     const libEx = clientViewLibrary.find(l => l.name.toLowerCase() === ex.exercise?.toLowerCase())
       || clientViewLibrary.find(l => l.name.toLowerCase().replace(/[^a-z0-9]/g,'') === ex.exercise?.toLowerCase().replace(/[^a-z0-9]/g,''));
@@ -3763,6 +3866,32 @@ window.saveClientWorkout = async function() {
   const sessionNotes = document.getElementById('cv-session-notes')?.value.trim() || '';
   const plan = clientViewPlan;
   const toSave = [];
+
+  // Save cardio data too
+  if (plan.cardio && plan.cardio.length) {
+    plan.cardio.forEach((c, ci) => {
+      const values = {};
+      document.querySelectorAll('[data-ci="' + ci + '"][data-metric]').forEach(input => {
+        const v = input.value.trim();
+        if (v) values[input.dataset.metric] = v;
+      });
+      if (Object.keys(values).length || c.exercise) {
+        toSave.push({
+          clientName: clientViewData.name,
+          week: null, date,
+          focus: plan.focus || 'Full Body',
+          exercise: c.exercise,
+          cardio: true,
+          timing: c.timing || 'before',
+          ...values,
+          sets: '', reps: '', weight: '',
+          sessionNotes,
+          loggedByClient: true,
+          createdAt: new Date().toISOString()
+        });
+      }
+    });
+  }
 
   plan.exercises.forEach((ex, ei) => {
     const numSets = parseInt(ex.sets) || 3;
@@ -4034,11 +4163,235 @@ function renderCvPRs() {
     '</div>';
 }
 
+// ── CARDIO ──
+
+const CARDIO_EXERCISES = [
+  // Machines
+  'Treadmill Walk','Treadmill Run','Incline Walk','Stationary Bike','Assault Bike',
+  'Rowing Machine','Ski Erg','Elliptical','Stair Climber',"Jacob's Ladder",
+  'Versa Climber','Air Bike',
+  // Outdoor
+  'Outdoor Run','Outdoor Walk','Speed Walk','Hill Sprints','Sprint Intervals',
+  'Cycling','Swimming','Aqua Jogging',
+  // Bodyweight cardio
+  'Jump Rope','Burpees','Mountain Climbers','Bear Crawls','Box Step-Ups',
+  'Battle Ropes','High Knees','Jumping Jacks','Lateral Shuffles',
+  // Loaded cardio
+  'Sled Push','Sled Pull',"Farmer's Carries",'Kettlebell Swings','Sandbag Carry',
+  // Classes/formats
+  'HIIT Cardio','Dance Cardio','Kickboxing Cardio','Circuit Training',
+];
+
+// Metrics shown per activity type
+const CARDIO_METRICS = {
+  default:      ['duration','distance','rpe','hrZone','notes'],
+  'Treadmill Walk':   ['duration','distance','pace','incline','rpe','hrZone','notes'],
+  'Treadmill Run':    ['duration','distance','pace','incline','rpe','hrZone','notes'],
+  'Incline Walk':     ['duration','distance','pace','incline','rpe','hrZone','notes'],
+  'Outdoor Run':      ['duration','distance','pace','rpe','hrZone','notes'],
+  'Hill Sprints':     ['duration','rounds','rpe','hrZone','notes'],
+  'Sprint Intervals': ['duration','rounds','rpe','hrZone','notes'],
+  'Outdoor Walk':     ['duration','distance','pace','rpe','hrZone','notes'],
+  'Speed Walk':       ['duration','distance','pace','rpe','hrZone','notes'],
+  'Cycling':          ['duration','distance','rpe','hrZone','notes'],
+  'Stationary Bike':  ['duration','distance','resistance','rpe','hrZone','notes'],
+  'Assault Bike':     ['duration','calories','rounds','rpe','hrZone','notes'],
+  'Air Bike':         ['duration','calories','rounds','rpe','hrZone','notes'],
+  'Rowing Machine':   ['duration','distance','split','rpe','hrZone','notes'],
+  'Ski Erg':          ['duration','distance','split','rpe','hrZone','notes'],
+  'Elliptical':       ['duration','resistance','rpe','hrZone','notes'],
+  'Stair Climber':    ['duration','floors','resistance','rpe','hrZone','notes'],
+  'Swimming':         ['duration','laps','distance','rpe','hrZone','notes'],
+  'Aqua Jogging':     ['duration','rpe','hrZone','notes'],
+  'Jump Rope':        ['duration','rounds','rpe','hrZone','notes'],
+  'Battle Ropes':     ['duration','rounds','rpe','hrZone','notes'],
+  'Burpees':          ['rounds','rpe','hrZone','notes'],
+  'Sled Push':        ['distance','weight','rounds','rpe','hrZone','notes'],
+  'Sled Pull':        ['distance','weight','rounds','rpe','hrZone','notes'],
+  "Farmer's Carries":['distance','weight','rounds','rpe','hrZone','notes'],
+  'Kettlebell Swings':['duration','rounds','rpe','hrZone','notes'],
+  'HIIT Cardio':      ['duration','rounds','rpe','hrZone','notes'],
+};
+
+const CARDIO_FIELD_LABELS = {
+  duration:   { label: 'Duration', placeholder: 'mins', unit: 'mins' },
+  distance:   { label: 'Distance', placeholder: 'miles/m', unit: '' },
+  pace:       { label: 'Pace', placeholder: 'min/mile', unit: '' },
+  incline:    { label: 'Incline', placeholder: '%', unit: '%' },
+  resistance: { label: 'Resistance', placeholder: 'level', unit: '' },
+  rounds:     { label: 'Rounds', placeholder: '#', unit: '' },
+  calories:   { label: 'Calories', placeholder: 'kcal', unit: 'kcal' },
+  split:      { label: 'Split', placeholder: 'min/500m', unit: '' },
+  laps:       { label: 'Laps', placeholder: '#', unit: '' },
+  floors:     { label: 'Floors', placeholder: '#', unit: '' },
+  weight:     { label: 'Weight', placeholder: 'lbs', unit: 'lbs' },
+  rpe:        { label: 'RPE (1-10)', placeholder: '1-10', unit: '' },
+  hrZone:     { label: 'HR Zone', placeholder: 'Zone 1-5', unit: '' },
+  notes:      { label: 'Notes', placeholder: 'Coaching notes...', unit: '' },
+};
+
+let cardioPlanCount = 0;
+
+function getCardioMetrics(exerciseName) {
+  return CARDIO_METRICS[exerciseName] || CARDIO_METRICS.default;
+}
+
+function buildCardioFields(metrics, values, blockId) {
+  return metrics.map(m => {
+    const def = CARDIO_FIELD_LABELS[m];
+    if (!def) return '';
+    if (m === 'notes') {
+      return '<div class="cardio-field" style="grid-column:1/-1;">' +
+        '<label>' + def.label + '</label>' +
+        '<input type="text" class="cardio-val-' + m + '" data-metric="' + m + '" ' +
+          'placeholder="' + def.placeholder + '" value="' + (values[m]||'') + '" />' +
+      '</div>';
+    }
+    return '<div class="cardio-field">' +
+      '<label>' + def.label + (def.unit ? ' (' + def.unit + ')' : '') + '</label>' +
+      '<input type="text" class="cardio-val-' + m + '" data-metric="' + m + '" ' +
+        'placeholder="' + def.placeholder + '" value="' + (values[m]||'') + '" />' +
+    '</div>';
+  }).join('');
+}
+
+window.addCardioPlanBlock = function(exName, values, timing) {
+  cardioPlanCount++;
+  const id = 'cardio-' + cardioPlanCount;
+  const container = document.getElementById('cardio-plan-blocks');
+  if (!container) return;
+
+  const metrics = getCardioMetrics(exName || '');
+  const timingVal = timing || 'before';
+
+  const block = document.createElement('div');
+  block.className = 'cardio-block';
+  block.id = id;
+  block.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+      '<div style="position:relative;flex:1;margin-right:8px;">' +
+        '<input type="text" class="cardio-ex-input" placeholder="Search or type cardio exercise..." ' +
+          'value="' + (exName||'').replace(/"/g,'&quot;') + '" autocomplete="off" data-blockid="' + id + '" ' +
+          'oninput="window.showCardioSuggestions(this,this.dataset.blockid)" ' +
+          'onfocus="window.showCardioSuggestions(this,this.dataset.blockid)" ' +
+          'onblur="window.hideCardioSug(\'csug-' + id + '\')" ' +
+          'onchange="window.onCardioExChange(this,this.dataset.blockid)" />' +
+        '<div class="cardio-suggestions" id="csug-' + id + '"></div>' +
+      '</div>' +
+      '<button class="remove-row-btn" data-blockid="' + id + '" ' +
+        'onclick="document.getElementById(this.dataset.blockid).remove()">✕</button>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
+      '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">Timing:</span>' +
+      '<button class="cardio-timing-btn' + (timingVal==='before' ? ' selected' : '') + '" ' +
+        'data-blockid="' + id + '" onclick="window.toggleCardioTiming(this)">Before workout</button>' +
+      '<button class="cardio-timing-btn' + (timingVal==='after' ? ' selected' : '') + '" ' +
+        'data-blockid="' + id + '" onclick="window.toggleCardioTiming(this)">After workout</button>' +
+      '<button class="cardio-timing-btn' + (timingVal==='standalone' ? ' selected' : '') + '" ' +
+        'data-blockid="' + id + '" onclick="window.toggleCardioTiming(this)">Standalone</button>' +
+    '</div>' +
+    '<div class="cardio-fields" id="fields-' + id + '">' +
+      buildCardioFields(metrics, values||{}, id) +
+    '</div>';
+
+  container.appendChild(block);
+};
+
+window.hideCardioSug = function(id) {
+  setTimeout(() => { const d = document.getElementById(id); if(d) d.classList.remove('open'); }, 200);
+};
+
+window.toggleCardioTiming = function(btn) {
+  const blockId = btn.dataset.blockid;
+  const block = document.getElementById(blockId);
+  if (!block) return;
+  block.querySelectorAll('.cardio-timing-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+};
+
+window.onCardioExChange = function(input, blockId) {
+  const metrics = getCardioMetrics(input.value.trim());
+  const fieldsDiv = document.getElementById('fields-' + blockId);
+  if (fieldsDiv) fieldsDiv.innerHTML = buildCardioFields(metrics, {}, blockId);
+};
+
+window.showCardioSuggestions = function(input, blockId) {
+  const q = input.value.trim().toLowerCase();
+  const dropdown = document.getElementById('csug-' + blockId);
+  if (!dropdown) return;
+
+  // First match against exercise library cardio entries
+  const libCardio = libraryExercises.filter(ex => {
+    const cats = Array.isArray(ex.categories) ? ex.categories : (ex.category ? [ex.category] : []);
+    return cats.includes('Cardio');
+  });
+
+  // Build full list: library cardio first, then CARDIO_EXERCISES
+  const libNames = libCardio.map(e => e.name);
+  const allOptions = [...new Set([...libNames, ...CARDIO_EXERCISES])];
+
+  const matches = !q
+    ? allOptions.slice(0, 12)
+    : allOptions.filter(n => n.toLowerCase().includes(q)).slice(0, 12);
+
+  if (!matches.length) { dropdown.classList.remove('open'); return; }
+
+  dropdown.innerHTML = matches.map(name => {
+    const isLib = libNames.includes(name);
+    const safeN = name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return '<div class="cardio-sug-item" data-name="' + safeN + '" data-blockid="' + blockId + '" ' +
+      'onmousedown="event.preventDefault()" onclick="window.selectCardioEx(this)">' +
+      name + (isLib ? ' <span style="font-size:10px;color:var(--accent);">📚</span>' : '') +
+    '</div>';
+  }).join('');
+  dropdown.classList.add('open');
+};
+
+window.selectCardioEx = function(item) {
+  const name = item.dataset.name || item.textContent.replace('📚','').trim();
+  const blockId = item.dataset.blockid;
+  const block = document.getElementById(blockId);
+  if (!block) return;
+  const input = block.querySelector('.cardio-ex-input');
+  if (input) { input.value = name; window.onCardioExChange(input, blockId); }
+  document.getElementById('csug-' + blockId)?.classList.remove('open');
+};
+
+function getCardioPlanData() {
+  const blocks = document.querySelectorAll('.cardio-block');
+  const cardioItems = [];
+  blocks.forEach(block => {
+    const exName = block.querySelector('.cardio-ex-input')?.value.trim() || '';
+    if (!exName) return;
+    const timing = block.querySelector('.cardio-timing-btn.selected')?.textContent?.trim() || 'before';
+    const values = {};
+    block.querySelectorAll('[data-metric]').forEach(input => {
+      const v = input.value.trim();
+      if (v) values[input.dataset.metric] = v;
+    });
+    cardioItems.push({ exercise: exName, timing, cardio: true, ...values });
+  });
+  return cardioItems;
+}
+
+function renderCardioPlanSection(cardioItems) {
+  cardioPlanCount = 0;
+  const container = document.getElementById('cardio-plan-blocks');
+  if (!container) return;
+  container.innerHTML = '';
+  if (cardioItems && cardioItems.length) {
+    cardioItems.forEach(item => {
+      window.addCardioPlanBlock(item.exercise, item, item.timing);
+    });
+  }
+}
+
 // ── EXERCISE LIBRARY ──
 
-const LIBRARY_CATEGORIES = ['All', 'Legs', 'Back', 'Chest', 'Arms', 'Shoulders', 'Core', 'Full Body', 'Cardio'];
+const LIBRARY_CATEGORIES = ['All', 'Legs', 'Glutes', 'Back', 'Chest', 'Arms', 'Shoulders', 'Core', 'Full Body', 'Cardio'];
 const LIBRARY_MUSCLES = {
   'Legs':      ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Hip Flexors'],
+  'Glutes':    ['Glutes', 'Hip Abductors', 'Hip Adductors', 'Piriformis', 'TFL'],
   'Back':      ['Upper Back', 'Lats', 'Lower Back', 'Traps', 'Rhomboids'],
   'Chest':     ['Chest', 'Pec Minor'],
   'Arms':      ['Biceps', 'Triceps', 'Forearms'],
@@ -4123,19 +4476,47 @@ function renderLibraryPanel() {
           'value="' + librarySearch + '" oninput="window.setLibrarySearch(this.value)" />' +
       '</div>' +
       '<div class="library-filter-bar">' + catBtns + '</div>' +
-      '<div class="library-grid">' + grid + '</div>' +
+      '<div class="library-grid" id="library-exercise-grid">' + grid + '</div>' +
     '</div>';
 }
 
-window.setLibraryCat = function(cat) {
-  libraryCatFilter = cat;
-  renderLibraryPanel();
-};
+
 
 window.setLibrarySearch = function(val) {
   librarySearch = val;
-  renderLibraryPanel();
+  renderLibraryGrid(); // only re-render the grid, not the whole panel (preserves focus)
 };
+
+window.setLibraryCat = function(cat) {
+  libraryCatFilter = cat;
+  // Update active button
+  document.querySelectorAll('.library-filter-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === cat);
+  });
+  renderLibraryGrid();
+};
+
+function renderLibraryGrid() {
+  const grid = document.getElementById('library-exercise-grid');
+  if (!grid) { renderLibraryPanel(); return; }
+  let filtered = libraryExercises.filter(ex => {
+    const exCats = Array.isArray(ex.categories) && ex.categories.length ? ex.categories : (ex.category ? [ex.category] : []);
+    const matchCat = libraryCatFilter === 'All' || exCats.includes(libraryCatFilter);
+    const matchSearch = !librarySearch || ex.name.toLowerCase().includes(librarySearch.toLowerCase());
+    return matchCat && matchSearch;
+  });
+  grid.innerHTML = filtered.length ? filtered.map(ex => {
+    const thumbHTML = ex.videoUrl ? getVideoThumb(ex.videoUrl) : '<div class="library-card-thumb" style="font-size:40px;">🏋</div>';
+    const tags = (ex.muscleTags||[]).map(t => '<span class="library-tag">' + t + '</span>').join('');
+    return '<div class="library-card" onclick="window.openExerciseModal(\'' + ex.id + '\')">'+
+      thumbHTML +
+      '<div class="library-card-body">' +
+        '<div class="library-card-cat">' + (Array.isArray(ex.categories) && ex.categories.length ? ex.categories.join(' · ') : (ex.category||'')) + '</div>' +
+        '<div class="library-card-name">' + ex.name + '</div>' +
+        '<div class="library-card-tags">' + tags + '</div>' +
+      '</div></div>';
+  }).join('') : '<div style="color:var(--muted);text-align:center;padding:40px 0;grid-column:1/-1;">No exercises found.</div>';
+}
 
 function getVideoThumb(url) {
   if (!url) return '<div class="library-card-thumb">🏋</div>';
